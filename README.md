@@ -1,8 +1,9 @@
-# WindowsFirewall
-A repository containing PowerShell scripts and firewall policies to configure Windows clients and servers including protocol, port,IP and application. These policies can be used with privileged access workstations as documented here - https://docs.microsoft.com/en-gb/windows-server/identity/securing-privileged-access/privileged-access-workstations.
+ # WindowsFirewall
+A repository containing PowerShell scripts and firewall policies to configure Windows clients and servers including protocol, port, IP and application. These policies can be used with privileged access workstations as documented here - https://docs.microsoft.com/en-gb/windows-server/identity/securing-privileged-access/privileged-access-workstations.
 Over the coming days I will add 3 PowerShell scripts and upload 3 group policy objects, the scripts can be populated with the IP addresses of your domain resources which will create very specific firewall rules for your domain.
 These policies should not be modified outside the scripts provided, domain specific policies should be created that sit above these baselines in the group policy link order. These domain specific policies (e.g. Domain Firewall, Tier 0 Devices Firewall, Server Role - Remote Administration Firewall) can have additional firewall allow or block rules. A block rule will override any rule in the baseline.
 These baselines must be above the any computer baseline provided by Microsoft (e.g. SCM Windows 10 TH2 - Computer).
+The domain firewall baseline enables auditing of denied connection attempts within the security event log (ID 5157), the tier x device firewall baseline enables auditing of denied and permitted connections (ID 5156). Permitted and denied connections are essential forensic evidence and should be archived.
 # Domain Firewall Baseline
 This policy is designed to sit at the root of the domain and contains rules that apply to all domain members. If policy inheritance is blocked on the OU this policy needs to be added to that OU and should be last in the link order
 # Tier X Devices Firewall Baseline
