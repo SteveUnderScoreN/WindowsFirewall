@@ -1,5 +1,5 @@
-  # WindowsFirewall
-A repository containing PowerShell scripts and firewall policies to configure Windows clients and servers including protocol, port, IP and application. These policies can be used with privileged access workstations as documented here - https://docs.microsoft.com/en-gb/windows-server/identity/securing-privileged-access/privileged-access-workstations.
+# WindowsFirewall
+A repository containing PowerShell scripts and firewall policies to configure Windows clients and servers including protocol, port, IP and application. These policies can be used with privileged access workstations as documented [here] (https://docs.microsoft.com/en-gb/windows-server/identity/securing-privileged-access/privileged-access-workstations).
 The scripts can be populated with the IP addresses of your domain resources which will create very specific firewall rules for your domain.  
 These policies should not be modified outside the scripts provided, domain specific policies should be created that sit above these baselines in the group policy link order. These domain specific policies (e.g. Domain Firewall, Tier 0 Devices Firewall, Server Role - Remote Administration Firewall) can have additional firewall allow or block rules. A block rule will override any rule in the baseline.
 These baselines must be above the any computer baseline provided by Microsoft (e.g. SCM Windows 10 TH2 - Computer).  
@@ -13,12 +13,12 @@ This policy contains rules that allow an administration server or privileged acc
 
 ## Notes
 ### Supported
-DirectAccess  
-IPSEC VPN  
-IPv6  
-Windows 10  
-Windows Server 2012 R2/2016  
-Privileged access workstations  
+ - DirectAccess  
+ - IPSEC VPN  
+ - IPv6  
+ - Windows 10  
+ - Windows Server 2012 R2/2016  
+ - Privileged access workstations  
 'Predefined set of computers' is supported and the following applies;  
   'Local Subnet'  includes and connected IP range for which an IP address has been assigned  
   'Intranet'      includes and IP subnet that have been added to 'Sites and Services (dssite.msc)', these are harvested by the IP helper  
@@ -27,8 +27,8 @@ Privileged access workstations
   'DNS Servers    Does not include the IPv6 addresses of DNS servers  
   'Internet'      Is everything that isn't in the ADHarvest registry key  
 ### Not supported
-NetBIOS  
-WINS  
+ - NetBIOS  
+ - WINS  
 ### Other
 NTLM should be blocked forcing mutual authentication via Kerberos, if there is a requirements for NTLM authentication to a server it should be whitelisted in the NTLM exceptions within a group policy object.  
 Some SVCHOST services do not honour the firewall settings, there are some temporary SVCHOST rules to cover these that may be refined at a later date.
