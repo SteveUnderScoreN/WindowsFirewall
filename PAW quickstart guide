@@ -1,0 +1,11 @@
+To deploy the minimum policies required for a privileged access workstation, on a computer that has the PowerShell Active Directory 
+modules installed;  
+Download the following policies to C:\Temp\SNGPO
+ - Domain Root\Domain Firewall Baseline
+ -
+ -   
+
+Download the 'GPOBackups.zip' to C:\Temp\SNGPO and extract the files.
+Review the domain resources variables in one script and copy them to the other scripts, the minimum requirements are the domain 
+controllers IP addresses and the proxy server port.
+https://blogs.technet.microsoft.com/secguide/
