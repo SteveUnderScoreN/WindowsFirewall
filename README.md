@@ -6,8 +6,7 @@ These baselines must be above any computer baseline [provided by Microsoft](http
 The domain firewall baseline enables auditing of denied connection attempts within the security event log (ID 5157), the tier x device firewall baseline enables auditing of denied and permitted connections (ID 5156). Permitted and denied connections are essential forensic evidence and should be archived. Logs should be set to automatically backup when full, a scheduled task can be created on event ID 1105 which runs a script to zip the logs locally. These logs can then be harvested by a central server and stored or imported into the event management system.
 
 ## Notes
-### Supported
- - DirectAccess  
+### Supported  
  - IPSEC VPN  
  - IPv6  
  - Windows 10  
@@ -20,6 +19,7 @@ The domain firewall baseline enables auditing of denied connection attempts with
    - 'DNS Servers' - does not include the IPv6 addresses of DNS servers  
    - 'Internet' - is everything that isn't in the ADHarvest registry key  
 ### Not supported
+ - DirectAccess (at least not for now)
  - NetBIOS  
  - WINS  
 ### Other
