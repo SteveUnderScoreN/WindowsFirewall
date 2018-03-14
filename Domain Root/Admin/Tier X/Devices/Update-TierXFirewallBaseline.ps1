@@ -99,7 +99,7 @@ foreach ($Resource in $Resources)
                                 }
                                 catch [Management.Automation.PSInvalidCastException]
                                 {
-                                    AttemptResolveDNSNAME $Name
+                                    . AttemptResolveDNSNAME $Name
 
                                 }
                             }
@@ -113,7 +113,7 @@ foreach ($Resource in $Resources)
                                 }
                                 catch [Management.Automation.PSInvalidCastException]
                                 {
-                                    AttemptResolveDNSNAME $Name
+                                    . AttemptResolveDNSNAME $Name
                                 }
                             }
         }
