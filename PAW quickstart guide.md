@@ -23,8 +23,7 @@ The policies should be linked in the following order;
  - MSFT Windows 10 RS3 - Computer (and other MSFT baselines e.g. Bitlocker, Credential Guard)
  - Domain Firewall Baseline
 
-Review the security event log for blocked connections (event ID 5157) and add them to the domain specific policies, the baselines should  
-only be modified by the scripts provided.  
+Review the security event log for blocked connections (event ID 5157) and add them to the domain specific policies, the baselines should only be modified by the scripts provided.  
 If there are rules that should be added to the baseline raise an issue in GitHub.
 
 ## When Using tier x administration policies;  
