@@ -1,30 +1,51 @@
 <#
-    ##Example parameter
-    $ProxyServers = '2a02:cc9:7732:5500::1','fd4e:eaa9:897b::1','172.19.110.1'
-    Get-WindowsFeature -Name GPMC
+.Synopsis
+   A script to create/update the firewall settings in a group policy object
+.DESCRIPTION
+   This script is from the repository https://github.com/SteveUnderScoreN/WindowsFirewall/ and is used together with a partially configured group policy object in a backup folder
+   to create/update the firewall settings in a group policy object. These partially configured backups can be downloaded from the repository.
+   There are arrays of domain resources which can be configured to create very specific firewall rules specific to the enterprise environment.
+   The group policy management tools need to be installed on the computer running this script and it needs access to the DNS and AD infrastructure.
+   The following 'Predefined set of computers' values are supported;
+   'LocalSubnet'
+   'DNS'
+   'DHCP'
+   'DefaultGateway'
+   'Internet'
+   'Intranet'
+.VERSION
+    0.7.0
+.CHANGELOG
+    Initial release
+.EXAMPLE
+   $ProxyServers = '2a02:cc9:7732:5500::1','fd4e:eaa9:897b::1','172.19.110.1'
+.EXAMPLE
+   $ProxyServers = 'proxy.mydomain.local','proxy2','proxy-server3'
+.EXAMPLE
+   $ProxyServers = '10.10.10.0/24','10.10.11.100-10.10.11.149'
 #>
 
-$SourceGPOBackupId = '{c69d83c5-1636-4ad7-b632-1f9b6963054e}'
-$TargetGPOName = 'SN-Server Role - Remote Administration firewall Baseline'
+$SourceGPOBackupId = '{7a3ae19b-11be-4cf7-a078-15c03a897e90}' # Do not modify this
+$TargetGPOName = 'SN-Tier X Firewall Baseline'
 $PathToGPOBackups = 'C:\Temp\SN-GPO'
 $DomainName = $env:USERDNSDOMAIN
 # Version 0.7.0 domain resources
 $DomainControllers = '127.0.0.1','SERVERNAME'
 $ProxyServerPorts = '8080'
 $ProxyServers = 'LocalSubnet','Intranet'
-$DNSServers = $DomainControllers
+$DNSServers = $DomainControllers # Specify these if you do not have DNS on each domain controller or you have additional DNS servers
 $CRLServers = 'LocalSubnet','Intranet'
 $WPAD_PACFileServers = 'LocalSubnet','Intranet'
-$TierXManagementServers = 'LocalSubnet','Intranet'
+$TierXManagementServers = 'LocalSubnet','Intranet' # These are used in tier X firewall baselines to define which computers can manage the device at a particular tier
 $SQLServers = '127.0.0.4'
 $WebServers = 'LocalSubnet','Intranet'
 $FileServers = 'LocalSubnet','Intranet'
 $KeyManagementServers = 'LocalSubnet','Intranet'
 $BackupServers = '127.0.0.1'
 $ClusteredNodesAndManagementAddresses = 'LocalSubnet','Intranet'
-$ExternalVPNEndpoints = '127.0.0.2 -  127.0.0.3' # This is not Direct Access it's IPSec
-$DirectAccessServers = '127.0.0.128/25' # This is the externally resolvable address
-$TrustedDHCPSubnets = 'Any' # This is enterprise subnets and includes subnets issued by the VPN server, 'Predefnied set of computers' cannot be used here
+$ExternalVPNEndpoints = '127.0.0.2 -  127.0.0.3' # This is the externally resolvable IPSec hostname or address
+$DirectAccessServers = '127.0.0.128/25' # This is the externally resolvable hostname or address of the DirectAccess IPHTTPS endpoint
+$TrustedDHCPSubnets = 'Any' # This is client enterprise subnets and includes subnets issued by the VPN server, 'Predefined set of computers' cannot be used here
 # END of version 0.7.0 domain resources
 
 $Resources = 'DomainControllers','ProxyServers','DNSServers','CRLServers','WPAD_PACFileServers','TierXManagementServers','SQLServers','WebServers','FileServers','KeyManagementServers','BackupServers','ClusteredNodesAndManagementAddresses','ExternalVPNEndpoints','DirectAccessServers','TrustedDHCPSubnets'
