@@ -1,4 +1,4 @@
-To deploy the minimum policies required for a privileged access workstation;  
+## To deploy the minimum policies required for a privileged access workstation;  
  - Download [this](https://github.com/SteveUnderScoreN/WindowsFirewall/archive/master.zip) repository as a zip and extract the following to C:\Temp\;
     - Domain Root/Update-DomainFirewallBaseline.ps1
     - Domain Root/Admin/Tier X/Devices/Update-TierXFirewallBaseline.ps1 
@@ -28,3 +28,10 @@ The policies should be linked in the following order;
 Review the security event log for blocked connections (event ID 5157) and add them to the domain specific policies, the baselines should  
 only be modified by the scripts provided.  
 If there are rules that should be added to the baseline raise an issue in GitHub.
+
+## When Using tier x administration policies;  
+ - The SSDP discovery service should be set to disabled when using  and the 'Turn off multicast name resolution'
+group policy setting should be enabled.  
+ - Remove all Appx packages that can be removed (Get-AppxPackage|Remove-AppxPackage).
+ - Disable One Drive
+ - Do not allow browsing to any websites other that those on the enterprise intranet.
