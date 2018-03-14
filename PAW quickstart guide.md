@@ -1,14 +1,13 @@
 To deploy the minimum policies required for a privileged access workstation;  
- - Download [this](https://github.com/SteveUnderScoreN/WindowsFirewall/archive/master.zip) repository as a zip and extract the following  
-to C:\Temp\;
-    -- Domain Root/Update-DomainFirewallBaseline.ps1
-    -- Domain Root/Admin/Tier X/Devices/Update-TierXFirewallBaseline.ps1 
-    -- Domain Root/Admin/Tier X/Devices/Update-ServerRoleRemoteAdministrationFirewallBaseline.ps1 
-    -- SN-GPO.zip
+ - Download [this](https://github.com/SteveUnderScoreN/WindowsFirewall/archive/master.zip) repository as a zip and extract the following to C:\Temp\;
+    - Domain Root/Update-DomainFirewallBaseline.ps1
+    - Domain Root/Admin/Tier X/Devices/Update-TierXFirewallBaseline.ps1 
+    - Domain Root/Admin/Tier X/Devices/Update-ServerRoleRemoteAdministrationFirewallBaseline.ps1 
+    - SN-GPO.zip
  
  - Extract 'SN-GPO.zip' (The files should now be located in C:\Temp\SN-GPO\)
- - Review the domain resources variables in one script and copy them to the other scripts, the minimum requirements are the domain  
- controllers names/IP addresses and the proxy server port
+ - Review the domain resources variables in one script and copy them to the other scripts, the minimum requirements are  
+ the domain controllers names/IP addresses and the proxy server port
  - On a computer that has the Group Policy Management Console installed run each script and review the GPO's created (SN-... by default)
  - Link all policies to the 'Domain Root/Admin/Tier 0/Devices' OU, the policies are not linked to any OU by the scripts.  
 
