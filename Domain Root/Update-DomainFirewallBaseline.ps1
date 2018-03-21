@@ -25,8 +25,8 @@
    $ProxyServers = '10.10.10.0/24','10.10.11.100-10.10.11.149'
 #>
 
-$SourceGPOBackupId = '{7a3ae19b-11be-4cf7-a078-15c03a897e90}' # Do not modify this
-$TargetGPOName = 'SN-Tier X Firewall Baseline'
+$SourceGPOBackupId = '{eb8aa8ac-840c-4e15-9ea4-dab25d6cb3a5}' # Do not modify this
+$TargetGPOName = 'SN-Domain Firewall Baseline'
 $PathToGPOBackups = 'C:\Temp\SN-GPO'
 $DomainName = $env:USERDNSDOMAIN
 # Version 0.7.0 domain resources
