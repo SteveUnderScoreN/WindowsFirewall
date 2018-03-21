@@ -14,9 +14,9 @@
    'Internet'
    'Intranet'
 .VERSION
-    0.7.0
+    0.7.1
 .CHANGELOG
-    Initial release
+    0.7.1   Corrected $SourceGPOBackupId and $TargetGPOName
 .EXAMPLE
    $ProxyServers = '2a02:cc9:7732:5500::1','fd4e:eaa9:897b::1','172.19.110.1'
 .EXAMPLE
