@@ -224,5 +224,12 @@ if (!(Get-GPO -DisplayName $TargetGPOName  -ErrorAction SilentlyContinue))
 }
 else
 {
-    Write-Warning "The policy `"$TargetGPOName`" already exists and no updates are available for this baseline"
+   #Just putting these here for now and I'll add in some code to allow for these updates to be added to an existing policy
+   #If you do want to manually update existing policies prior to the script update use the following lines so that the GUID remains consistent across versions
+   $GPOSession = Open-NetGPO -PolicyStore "$DomainName\$TargetGPOName"
+   New-NetFirewallRule -GPOSession $GPOSession -Name '{725a67e5-68cd-4217-a159-48c9e9232425}' -DisplayName 'Antimalware Service Executable 4.14.17613.18039-0 (TCP-Out)' -Enabled True -Profile Domain -Direction Outbound -Action Allow -RemoteAddress $ProxyServers -Protocol TCP -RemotePort $ProxyServerPorts -Program '%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\4.14.17613.18039-0\MsMpEng.exe' #Add to $OutboundProxyServersRules
+   New-NetFirewallRule -GPOSession $GPOSession -Name '{e92e00fa-918f-4e62-bd3e-a91340fd7aa0}' -DisplayName 'Antimalware Service Executable 4.14.17613.18039-0 (TCP-Out)' -Enabled True -Profile Domain -Direction Outbound -Action Allow -Protocol TCP -RemotePort '80','443' -Program '%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\4.14.17613.18039-0\MsMpEng.exe' 
+   New-NetFirewallRule -GPOSession $GPOSession -Name '{20070420-f06b-4773-8ff8-d21db877f4db]' -DisplayName 'Background Task Host (TCP-Out)' -Enabled True -Profile Domain -Direction Outbound -Action Allow  -RemoteAddress $DomainControllers -Protocol TCP -RemotePort '135' -Program '%SystemRoot%\System32\backgroundTaskHost.exe' #Add to $OutboundDomainControllersRules 
+   New-NetFirewallRule -GPOSession $GPOSession -Name '{fabd86d5-92b1-4a15-b733-2331bfc9ab4c}' -DisplayName 'Network Realtime Inspection Service 4.14.17613.18039-0 (TCP-Out)' -Enabled True -Profile Domain -Direction Outbound -Action Allow -RemoteAddress $ProxyServers -Protocol TCP -RemotePort $ProxyServerPorts -Program '%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\4.14.17613.18039-0\NisSrv.exe' #Add to $OutboundProxyServersRules
+   Save-NetGPO -GPOSession $GPOSession
 }
