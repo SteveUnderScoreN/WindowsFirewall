@@ -119,7 +119,6 @@ foreach ($Resource in $Resources)
                                 catch [Management.Automation.PSInvalidCastException]
                                 {
                                     . AttemptResolveDNSNAME $Name
-
                                 }
                             }
             default         {
