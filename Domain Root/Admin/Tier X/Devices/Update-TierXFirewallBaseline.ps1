@@ -291,5 +291,10 @@ if (!(Get-GPO -DisplayName $TargetGPOName  -ErrorAction SilentlyContinue))
 }
 else
 {
-    Write-Warning "The policy `"$TargetGPOName`" already exists and no updates are available for this baseline"
+   #Just putting these here for now and I'll add in some code to allow for these updates to be added to an existing policy
+   #If you do want to manually update existing policies prior to the script update use the following lines so that the GUID remains consistent across versions
+   $GPOSession = Open-NetGPO -PolicyStore "$DomainName\$TargetGPOName"
+   New-NetFirewallRule -GPOSession $GPOSession -Name '{19e95b85-df9e-4f10-bf7c-afb3b95a5ad4}' -DisplayName 'SVCHOST IKEEXT (UDP-Out)' -Enabled True -Profile Any -Direction Outbound -Action Allow -RemoteAddress $ExternalVPNEndpoints -Protocol UDP -RemotePort '500','4500' -Program '%SystemRoot%\System32\svchost.exe' -Service 'IKEEXT' #Add to $OutboundExternalVPNEndpointsRules
+   Get-NetFirewallRule -GPOSession $GPOSession -Name '{7A6C16B1-8717-41FD-848F-3133EABD0457}'|Get-NetFirewallPortFilter|Set-NetFirewallPortFilter -RemotePort '135','389','49152-65535' # Adding '49152-65535' to the remote ports in the WMIPRVSE (TCP-Out) rule
+   Save-NetGPO -GPOSession $GPOSession
 }
