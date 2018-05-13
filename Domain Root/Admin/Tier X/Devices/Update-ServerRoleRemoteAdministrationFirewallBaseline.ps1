@@ -211,6 +211,10 @@ if (!(Get-GPO -DisplayName $TargetGPOName  -ErrorAction SilentlyContinue))
 }
 else
 {
-    Write-Warning "The policy `"$TargetGPOName`" already exists and no updates are available for this baseline"
-    Break
+
+   #Just putting these here for now and I'll add in some code to allow for these updates to be added to an existing policy
+   #If you do want to manually update existing policies prior to the script update use the following lines so that the GUID remains consistent across versions
+   $GPOSession = Open-NetGPO -PolicyStore "$DomainName\$TargetGPOName"
+   New-NetFirewallRule -GPOSession $GPOSession -Name '{5d338b4c-c60c-4a34-9409-ec14df246ee6}' -DisplayName 'Inspect VHD Dialog (TCP-Out)' -Enabled True -Profile Domain -Direction Outbound -Action Allow -RemoteAddress 'LocalSubnet','Intranet' -Protocol TCP -RemotePort '5985' -Program '%ProgramFiles%\Hyper-V\InspectVhdDialog.exe'
+   Save-NetGPO -GPOSession $GPOSession
 }
