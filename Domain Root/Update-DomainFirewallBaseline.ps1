@@ -77,7 +77,7 @@ foreach ($Resource in $Resources)
         switch -Wildcard ($Name)
         {
             "*/*"           {
-                                $Addresses += $Name
+                                $Addresses += $Name # A forward slash indicates a subnet has been specified
                                 break
                             }
             "LocalSubnet"   {
@@ -113,7 +113,7 @@ foreach ($Resource in $Resources)
                                 {
                                     if ([ipaddress]$Name.Split("-")[0] -and [ipaddress]$Name.Split("-")[1])
                                     {
-                                        $Addresses += $Name
+                                        $Addresses += $Name # If each side of the hyphen is an IP address then a range has been specified
                                     }
                                 }
                                 catch [Management.Automation.PSInvalidCastException]
