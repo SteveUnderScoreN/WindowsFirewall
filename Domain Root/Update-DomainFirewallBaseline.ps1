@@ -48,7 +48,7 @@ $TrustedDHCPSubnets = 'Any' # This is client enterprise subnets and includes sub
 
 $Resources = 'DomainControllers','ProxyServers','DNSServers','CRLServers','WPAD_PACFileServers','TierXManagementServers','SQLServers','WebServers','FileServers','KeyManagementServers','BackupServers','ClusteredNodesAndManagementAddresses','ExternalVPNEndpoints','DirectAccessServers','TrustedDHCPSubnets'
 
-function AttemptResolveDNSNAME ($Name)
+function AttemptResolveDnsName ($Name)
 {
     try
     {
@@ -116,7 +116,7 @@ foreach ($Resource in $Resources)
                                 }
                                 catch [Management.Automation.PSInvalidCastException]
                                 {
-                                    . AttemptResolveDNSNAME $Name
+                                    . AttemptResolveDnsName $Name
                                 }
                             }
             default         {
@@ -129,7 +129,7 @@ foreach ($Resource in $Resources)
                                 }
                                 catch [Management.Automation.PSInvalidCastException]
                                 {
-                                    . AttemptResolveDNSNAME $Name
+                                    . AttemptResolveDnsName $Name
                                 }
                             }
         }
