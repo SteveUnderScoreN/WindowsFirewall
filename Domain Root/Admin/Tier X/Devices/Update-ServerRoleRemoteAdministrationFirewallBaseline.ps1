@@ -76,7 +76,6 @@ foreach ($Resource in $Resources)
         {
             "*/*"           {
                                 $Addresses += $Name # A forward slash indicates a subnet has been specified
-
                                 break
                             }
             "LocalSubnet"   {
