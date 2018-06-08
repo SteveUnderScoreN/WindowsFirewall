@@ -13,9 +13,7 @@
    'DefaultGateway'
    'Internet'
    'Intranet'
-.VERSION
-    0.7.1
-.CHANGELOG
+.NOTES
     0.7.1   Corrected $SourceGPOBackupId and $TargetGPOName
 .EXAMPLE
    $ProxyServers = '2a02:cc9:7732:5500::1','fd4e:eaa9:897b::1','172.19.110.1'
@@ -77,7 +75,8 @@ foreach ($Resource in $Resources)
         switch -Wildcard ($Name)
         {
             "*/*"           {
-                                $Addresses += $Name
+                                $Addresses += $Name # A forward slash indicates a subnet has been specified
+
                                 break
                             }
             "LocalSubnet"   {
@@ -113,7 +112,7 @@ foreach ($Resource in $Resources)
                                 {
                                     if ([ipaddress]$Name.Split("-")[0] -and [ipaddress]$Name.Split("-")[1])
                                     {
-                                        $Addresses += $Name
+                                        $Addresses += $Name # If each side of the hyphen is an IP address then a range has been specified
                                     }
                                 }
                                 catch [Management.Automation.PSInvalidCastException]
