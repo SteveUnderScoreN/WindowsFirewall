@@ -73,7 +73,7 @@ function AttemptResolveDnsName ($Name)
 
 function Version0.8.0Updates
 {
-   New-NetFirewallRule -GPOSession $GPOSession -Name '{20070420-f06b-4773-8ff8-d21db877f4db]' -DisplayName 'Background Task Host (TCP-Out)' -Enabled True -Profile Domain -Direction Outbound -Action Allow  -RemoteAddress $DomainControllers -Protocol TCP -RemotePort '135' -Program '%SystemRoot%\System32\backgroundTaskHost.exe' #Add to $OutboundDomainControllersRules 
+   New-NetFirewallRule -GPOSession $GPOSession -Name '{20070420-f06b-4773-8ff8-d21db877f4db]' -DisplayName 'Background Task Host (TCP-Out)' -Enabled True -Profile Domain -Direction Outbound -Action Allow  -RemoteAddress $DomainControllers -Protocol TCP -RemotePort "135","49152-65535" -Program '%SystemRoot%\System32\backgroundTaskHost.exe' #Add to $OutboundDomainControllersRules 
    $PlatformVersion =  "4.16.17656.18052-0"
    $GuidComponent = $PlatformVersion.Split(".-")
    $GuidComponent = $GuidComponent[2] + $GuidComponent[3]
