@@ -13,7 +13,7 @@ The domain firewall baseline enables auditing of denied connection attempts with
  - Windows Server 2012 R2/2016  
  - Privileged access workstations  
  - 'Predefined set of computers' is supported and the following applies;  
-   - 'Local Subnet' - includes and connected IP range for which an IP address has been assigned  
+   - 'Local Subnet' - includes the connected IP range for which an IP address has been assigned  
    - 'Intranet' - includes and IP subnet that have been added to 'Sites and Services (dssite.msc)', these are harvested by the IP helper service and can be seen in the following registry key;  
                   HKLM:\SYSTEM\CurrentControlSet\Services\iphlpsvc\Parameters\ADHarvest  
    - 'DNS Servers' - does not include the IPv6 addresses of DNS servers  
