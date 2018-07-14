@@ -1,0 +1,4 @@
+I'm putting together a script to collect security events from a domain joined system, analyse them and generate rules which can then be
+applied to an existing group policy object.
+The rule generation will make recommendations and provide security advice around the type of rule being created.
+I'm planning to use a GUI so that rules can be modified with a drop-down so the script will not be supported over remoting.
