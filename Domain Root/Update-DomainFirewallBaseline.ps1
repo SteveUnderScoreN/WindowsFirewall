@@ -113,10 +113,10 @@ function Version080Updates
     Write-Progress -Activity "Applying version 0.8.0 updates" -PercentComplete 1
     try
     {
-        foreach ($InboundBackupServer in $InboundBackupServers)
+        foreach ($InboundBackupServerRule in $InboundBackupServersRules)
         {
             Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "1"
-            $Rule = Get-NetFirewallRule -Name $InboundBackupServer -GPOSession $GPOSession
+            $Rule = Get-NetFirewallRule -Name $InboundBackupServerRule -GPOSession $GPOSession
             $Rule.Group = "InboundBackupServers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
@@ -215,7 +215,7 @@ until ($SaveGpo.State -eq "Completed")
 
 function DefineExistingRulesGroups
 {
-$InboundBackupServers = 
+$InboundBackupServersRules = 
 "{C245295B-F872-4582-8D46-4D16FC51C59C}"
 
 $OutboundProxyServersRules = 
@@ -436,10 +436,10 @@ $ImportGpo |Receive-Job -Keep
 
 $GpoSession = Open-NetGPO -PolicyStore "$DomainName\$TargetGpoName"
 . DefineExistingRulesGroups
-foreach ($InboundBackupServer in $InboundBackupServers)
+foreach ($InboundBackupServerRule in $InboundBackupServersRules)
 {
     Write-Progress -Activity "Updating restored rules" -Status "Backup server rules" -PercentComplete "1"
-    Set-NetFirewallRule -Name $InboundBackupServer -GPOSession $GpoSession -RemoteAddress $BackupServers
+    Set-NetFirewallRule -Name $InboundBackupServerRule -GPOSession $GpoSession -RemoteAddress $BackupServers
 }
 foreach ($OutboundProxyServersRule in $OutboundProxyServersRules)
 {
