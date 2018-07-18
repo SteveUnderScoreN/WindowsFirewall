@@ -108,7 +108,7 @@ function AttemptResolveDnsName ($Name)
     }
 }
 
-function Version0.8.0Updates
+function Version080Updates
 {
     Write-Progress -Activity "Applying version 0.8.0 updates" -PercentComplete 1
     try
@@ -370,7 +370,7 @@ if (Get-GPO -DisplayName $TargetGpoName -ErrorAction SilentlyContinue)
             {
                 Write-Progress -Activity "Awaiting user input" -Completed
                 . DefineExistingRulesGroups
-                . Version0.8.0Updates
+                . Version080Updates
                 break
             }
             "U"
@@ -462,5 +462,5 @@ foreach ($OutboundCrlServersRule in $OutboundCrlServersRules)
     Set-NetFirewallRule -Name $OutboundCrlServersRule -GPOSession $GpoSession -RemoteAddress $CrlServers
 }
 Write-Progress -Activity "Updating restored rules" -Completed
-. Version0.8.0Updates
+. Version080Updates
 . SaveGpo
