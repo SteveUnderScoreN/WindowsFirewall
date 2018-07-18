@@ -15,10 +15,10 @@
        "Internet"
        "Intranet"
    Save and run the script or run it interactively, link the GPO to the target OU and ensure the new GPO is above any Microsoft supplied baselines.
-   If your domain resources change run the script and select U to update all exsisting rules with new IP address values, version 0.8.0 updates need to be applied before selecting U.
+   If your domain resources change run the script and select U to update all existing rules with new IP address values, version 0.8.0 updates need to be applied before selecting U.
 .NOTES
    0.7.1   Corrected $SourceGPOBackupId and $TargetGpoName.
-   0.8.0   Added existing rule update function (using the 'Group' parameter of rules), moved code blocks around, added new firewall rules, added progrewss bars, added some error handling and updated comments.
+   0.8.0   Added existing rule update function (using the 'Group' parameter of rules), moved code blocks around, added new firewall rules, added progress bars, added some error handling and updated comments.
 .EXAMPLE
    $TargetGpoName = "Domain Firewall Baseline"
    $PathToGpoBackups = "C:\Temp\WindowsFirewall-GPO"
@@ -56,7 +56,7 @@ $DirectAccessServers = "127.0.0.128/25" # This is the externally resolvable host
 $TrustedDhcpSubnets = "Any" # This is client enterprise subnets and includes subnets issued by the VPN server, "Predefined set of computers" cannot be used here
 # END of version 0.7.0 domain resources
 # Version 0.8.0 domain resources
-$ServerRoleAdministrationServers = "LocalSubnet","Intranet" # These are trusted machines used by teir administrators permitted to administer a server role
+$ServerRoleAdministrationServers = "LocalSubnet","Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
 # END of version 0.8.0 domain resources
 
 $Resources = "DomainControllers","ProxyServers","DnsServers","CrlServers","Wpad_PacFileServers","TierXManagementServers","SqlServers","WebServers","FileServers","KeyManagementServers","BackupServers","ClusteredNodesAndManagementAddresses","ExternalVpnEndpoints","DirectAccessServers","TrustedDhcpSubnets","ServerRoleAdministrationServers"
