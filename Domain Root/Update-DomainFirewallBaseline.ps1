@@ -117,35 +117,35 @@ function Version0.8.0Updates
         {
             Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "1"
             $Rule = Get-NetFirewallRule -Name $InboundBackupServer -GPOSession $GPOSession
-            $Rule.Group = "BackupServers"
+            $Rule.Group = "InboundBackupServers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         foreach ($OutboundProxyServersRule in $OutboundProxyServersRules)
         {
             Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "10"
             $Rule = Get-NetFirewallRule -Name $OutboundProxyServersRule -GPOSession $GPOSession
-            $Rule.Group = "ProxyServers"
+            $Rule.Group = "OutboundProxyServers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         foreach ($OutboundDomainControllersRule in $OutboundDomainControllersRules)
         {
             Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "40"
             $Rule = Get-NetFirewallRule -Name $OutboundDomainControllersRule -GPOSession $GPOSession
-            $Rule.Group = "DomainControllers"
+            $Rule.Group = "OutboundDomainControllers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         foreach ($OutboundKeyManagementServersRule in $OutboundKeyManagementServersRules)
         {
             Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "80"
             $Rule = Get-NetFirewallRule -Name $OutboundKeyManagementServersRule -GPOSession $GPOSession
-            $Rule.Group = "KeyManagementServers"
+            $Rule.Group = "OutboundKeyManagementServers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         foreach ($OutboundCrlServersRule in $OutboundCrlServersRules)
         {
             Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "90"
             $Rule = Get-NetFirewallRule -Name $OutboundCrlServersRule -GPOSession $GPOSession
-            $Rule.Group = "CRLServers"
+            $Rule.Group = "OutboundCRLServers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -Completed
@@ -174,22 +174,22 @@ function Version0.8.0Updates
         $PlatformVersion =  "4.16.17656.18052-0"
         $GuidComponent = $PlatformVersion.Split(".-")
         $GuidComponent = $GuidComponent[2] + $GuidComponent[3]
-        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{725a67e5-68cd-4217-a159-48$GuidComponent}" -DisplayName "Antimalware Service Executable $PlatformVersion (TCP-Out)" -Group "ProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MsMpEng.exe")
+        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{725a67e5-68cd-4217-a159-48$GuidComponent}" -DisplayName "Antimalware Service Executable $PlatformVersion (TCP-Out)" -Group "OutboundProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MsMpEng.exe")
         [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{e92e00fa-918f-4e62-bd3e-a9$GuidComponent}" -DisplayName "Antimalware Service Executable $PlatformVersion (TCP-Out)" -Direction "Outbound" -Protocol "TCP" -RemotePort "80","443" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MsMpEng.exe")
-        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{fabd86d5-92b1-4a15-b733-23$GuidComponent}" -DisplayName "Network Realtime Inspection Service $PlatformVersion (TCP-Out)" -Group "ProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\NisSrv.exe")
-        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{4b36d08c-cf11-41e2-8d9d-80$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Group "ProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe")
+        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{fabd86d5-92b1-4a15-b733-23$GuidComponent}" -DisplayName "Network Realtime Inspection Service $PlatformVersion (TCP-Out)" -Group "OutboundProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\NisSrv.exe")
+        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{4b36d08c-cf11-41e2-8d9d-80$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Group "OutboundProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe")
         [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{bd20eef3-283e-4fa1-ab43-47$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Direction "Outbound" -Protocol "TCP" -RemotePort "443" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe")
-        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{65c13740-9290-4caf-bd37-ac$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Group "Wpad_PacFileServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $WPAD_PACFileServers -Protocol "TCP" -RemotePort "80" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe")
+        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{65c13740-9290-4caf-bd37-ac$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Group "OutboundWpad_PacFileServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $WPAD_PACFileServers -Protocol "TCP" -RemotePort "80" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe")
         Write-Progress -Activity "Applying version 0.8.0 updates - creating new rules" -id 1 -PercentComplete "50"
         $PlatformVersion =  "4.18.1806.18062-0"
         $GuidComponent = $PlatformVersion.Split(".-")
         $GuidComponent = $GuidComponent[2] + $GuidComponent[3]
-        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{725a67e5-68cd-4217-a159-48c$GuidComponent}" -DisplayName "Antimalware Service Executable $PlatformVersion (TCP-Out)" -Group "ProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MsMpEng.exe")
+        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{725a67e5-68cd-4217-a159-48c$GuidComponent}" -DisplayName "Antimalware Service Executable $PlatformVersion (TCP-Out)" -Group "OutboundProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MsMpEng.exe")
         [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{e92e00fa-918f-4e62-bd3e-a91$GuidComponent}" -DisplayName "Antimalware Service Executable $PlatformVersion (TCP-Out)" -Direction "Outbound" -Protocol "TCP" -RemotePort "80","443" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MsMpEng.exe")
-        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{fabd86d5-92b1-4a15-b733-233$GuidComponent}" -DisplayName "Network Realtime Inspection Service $PlatformVersion (TCP-Out)" -Group "ProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\NisSrv.exe")
-        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{4b36d08c-cf11-41e2-8d9d-803$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Group "ProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe")
+        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{fabd86d5-92b1-4a15-b733-233$GuidComponent}" -DisplayName "Network Realtime Inspection Service $PlatformVersion (TCP-Out)" -Group "OutboundProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\NisSrv.exe")
+        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{4b36d08c-cf11-41e2-8d9d-803$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Group "OutboundProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe")
         [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{bd20eef3-283e-4fa1-ab43-471$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Direction "Outbound" -Protocol "TCP" -RemotePort "443" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe")
-        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{65c13740-9290-4caf-bd37-ac0$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Group "Wpad_PacFileServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $WPAD_PACFileServers -Protocol "TCP" -RemotePort "80" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe")
+        [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{65c13740-9290-4caf-bd37-ac0$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Group "OutboundWpad_PacFileServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $WPAD_PACFileServers -Protocol "TCP" -RemotePort "80" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe")
         Write-Progress -Activity "Applying version 0.8.0 updates - creating new rules" -id 1 -Completed
         Write-Output "`n`nVersion 0.8.0 update to create new rules has completed"
     }
@@ -379,17 +379,17 @@ if (Get-GPO -DisplayName $TargetGpoName -ErrorAction SilentlyContinue)
                 try
                 {
                 Write-Progress -Activity "Updating existing rules" -PercentComplete "1"
-                Set-NetFirewallRule -Group "BackupServers" -GPOSession $GpoSession -RemoteAddress $BackupServers -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
+                Set-NetFirewallRule -Group "InboundBackupServers" -GPOSession $GpoSession -RemoteAddress $BackupServers -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
                 Write-Progress -Activity "Updating existing rules" -PercentComplete "10"
-                Set-NetFirewallRule -Group "ProxyServers" -GPOSession $GpoSession -RemoteAddress $ProxyServers -RemotePort $ProxyServerPorts -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
+                Set-NetFirewallRule -Group "OutboundProxyServers" -GPOSession $GpoSession -RemoteAddress $ProxyServers -RemotePort $ProxyServerPorts -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
                 Write-Progress -Activity "Updating existing rules" -PercentComplete "40"
-                Set-NetFirewallRule -Group "DomainControllers" -GPOSession $GpoSession -RemoteAddress $DomainControllers -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
+                Set-NetFirewallRule -Group "OutboundDomainControllers" -GPOSession $GpoSession -RemoteAddress $DomainControllers -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
                 Write-Progress -Activity "Updating existing rules" -PercentComplete "70"
-                Set-NetFirewallRule -Group "KeyManagementServers" -GPOSession $GpoSession -RemoteAddress $KeyManagementServers -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
+                Set-NetFirewallRule -Group "OutboundKeyManagementServers" -GPOSession $GpoSession -RemoteAddress $KeyManagementServers -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
                 Write-Progress -Activity "Updating existing rules" -PercentComplete "80"
-                Set-NetFirewallRule -Group "CrlServers" -GPOSession $GpoSession -RemoteAddress $CrlServers -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
+                Set-NetFirewallRule -Group "OutboundCrlServers" -GPOSession $GpoSession -RemoteAddress $CrlServers -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
                 Write-Progress -Activity "Updating existing rules" -PercentComplete "90"
-                Set-NetFirewallRule -Group "Wpad_PacFileServers" -GPOSession $GpoSession -RemoteAddress $Wpad_PacFileServers -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
+                Set-NetFirewallRule -Group "OutboundWpad_PacFileServers" -GPOSession $GpoSession -RemoteAddress $Wpad_PacFileServers -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
                 Write-Progress -Activity "Updating existing rules" -Completed
                 Write-Output "`n`nExisting rules update completed."
                 break
