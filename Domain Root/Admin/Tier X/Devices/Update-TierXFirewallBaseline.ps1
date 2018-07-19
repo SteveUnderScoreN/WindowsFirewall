@@ -129,49 +129,49 @@ function Version080Updates
         }
         foreach ($OutboundDomainControllersRule in $OutboundDomainControllersRules)
         {
-            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "10"
+            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "40"
             $Rule = Get-NetFirewallRule -Name $OutboundDomainControllersRule -GPOSession $GpoSession
             $Rule.Group = "OutboundDomainControllers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         foreach ($OutboundWebServersRule in $OutboundWebServersRules)
         {
-            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "10"
+            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "70"
             $Rule = Get-NetFirewallRule -Name $OutboundWebServersRule -GPOSession $GpoSession
             $Rule.Group = "OutboundWebServers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         foreach ($InboundExternalVPNEndpointsRule in $InboundExternalVPNEndpointsRules)
         {
-            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "10"
+            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "75"
             $Rule = Get-NetFirewallRule -Name $InboundExternalVPNEndpointsRule -GPOSession $GpoSession
             $Rule.Group = "InboundExternalVPNEndpoints"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         foreach ($OutboundExternalVPNEndpointsRule in $OutboundExternalVPNEndpointsRules)
         {
-            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "10"
+            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "80"
             $Rule = Get-NetFirewallRule -Name $OutboundExternalVPNEndpointsRule -GPOSession $GpoSession
             $Rule.Group = "OutboundExternalVPNEndpoints"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         foreach ($OutboundDirectAccessServersRule in $OutboundDirectAccessServersRules)
         {
-            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "10"
+            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "85"
             $Rule = Get-NetFirewallRule -Name $OutboundDirectAccessServersRule -GPOSession $GpoSession
             $Rule.Group = "OutboundDirectAccessServers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         foreach ($OutboundCRLServersRule in $OutboundCRLServersRules)
         {
-            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "10"
+            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "90"
             $Rule = Get-NetFirewallRule -Name $OutboundCRLServersRule -GPOSession $GpoSession
             $Rule.Group = "OutboundCRLServers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
         foreach ($OutboundWPAD_PACFileServersRule in $OutboundWPAD_PACFileServersRules)
         {
-            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "10"
+            Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "95"
             $Rule = Get-NetFirewallRule -Name $OutboundWPAD_PACFileServersRule -GPOSession $GpoSession
             $Rule.Group = "OutboundWPAD_PACFileServers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
