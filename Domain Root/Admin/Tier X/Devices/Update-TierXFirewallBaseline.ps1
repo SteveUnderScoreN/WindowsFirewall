@@ -127,6 +127,7 @@ function Version080Updates
             $Rule.Group = "OutboundProxyServers"
             Set-NetFirewallRule -InputObject $Rule -ErrorAction Stop -ErrorVariable "UpdatingExistingRules"
         }
+        Write-Progress -Activity "Applying version 0.8.0 updates" -PercentComplete 25
         foreach ($OutboundDomainControllersRule in $OutboundDomainControllersRules)
         {
             Write-Progress -Activity "Applying version 0.8.0 updates - updating existing rules" -id 1 -PercentComplete "40"
@@ -209,7 +210,7 @@ function Version080Updates
 
 function SaveGpo
 {
-$SaveGpo = Start-Job -ScriptBlock {Save-NetGPO -GPOSession $Using:GpoSession}
+$SaveGpo = Start-Job -ScriptBlock {Save-NetGPO -GPOSession $args[0]} -ArgumentList $GpoSession #Bug in PWSH 5.1.17134.165 (1803) prevents the interactive use of $Using:
 do
 {
     $IndexNumber ++
@@ -221,7 +222,8 @@ do
         $IndexNumber = 0
     }
 }
-until ($SaveGpo.State -eq "Completed")
+while ($SaveGpo.State -eq "Running")
+$SaveGpo |Receive-Job -Keep
 }
 
 function DefineExistingRulesGroups
@@ -490,7 +492,7 @@ if (!(Test-Path "$PathToGpoBackups\manifest.xml" -ErrorAction SilentlyContinue))
     break
 }
 
-$ImportGpo = Start-Job -ScriptBlock {Import-GPO -BackupId $Using:SourceGpoBackupId -Path $Using:PathToGpoBackups -TargetName $Using:TargetGpoName -CreateIfNeeded -ErrorAction Stop}
+$ImportGpo = Start-Job -ScriptBlock {Import-GPO -BackupId $args[0] -Path $args[1] -TargetName $args[2] -CreateIfNeeded -ErrorAction Stop} -ArgumentList $SourceGpoBackupId,$PathToGpoBackups,$TargetGpoName #Bug in PWSH 5.1.17134.165 (1803) prevents the interactive use of $Using:
 do
 {
     $IndexNumber ++
@@ -502,8 +504,14 @@ do
         $IndexNumber = 0
     }
 }
-until ($ImportGpo.State -eq "Completed")
+while ($ImportGpo.State -eq "Running")
 $ImportGpo |Receive-Job -Keep
+if (($ImportGpo |Receive-Job -Keep).DisplayName -ne $TargetGpoName)
+{
+    Write-Output "An error has beeen encountered in the GPO restore job."
+    break
+}
+Write-Progress -Activity "Importing group policy object" -Completed
 
 $GpoSession = Open-NetGPO -PolicyStore "$DomainName\$TargetGpoName"
 . DefineExistingRulesGroups
