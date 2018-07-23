@@ -24,3 +24,15 @@ The domain firewall baseline enables auditing of denied connection attempts with
 ### Other
  - NTLM should be blocked forcing mutual authentication via Kerberos, if there is a requirements for NTLM authentication to a server it should be whitelisted in the NTLM exceptions within a group policy object  
  - Some SVCHOST services do not honour the firewall settings, there are some temporary SVCHOST rules to cover these that may be refined at a later date  
+## Changes
+I've modified the existing scripts to use the "Group" parameter that matches the domain resources defined. This allows us to have a rule to set new parameter values on all rules that are in a specific group, for example;
+I have 35 rules that have domain controllers as the destination IP address
+I change the IP address of a domain controller which is updated in DNS
+I add an IPv6 address to an existing domain controller which is created in DNS
+I have a new domain controller at a new site and the address is created in DNS
+I update the $DomainControllers domain resource variable to add the new server name along side the existing server names
+I run the script against the GPO with the 35 rules
+The script converts $DomainControllers from the names of the servers to an array of IP addresses
+The script detects the existing GPO and presents a menu to select the "Update existing" option
+When selected the script, with 1 line, updates all 35 rules that have the group as "DomainControllers"
+The GPO is then saved back to the domain and is ready to be applied
