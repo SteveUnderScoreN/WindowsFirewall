@@ -7,3 +7,7 @@ group policy setting should be enabled.
  - Remove all Appx packages that can be removed (Get-AppxPackage|Remove-AppxPackage).
  - Disable One Drive
  - Do not allow browsing to any websites other that those on the enterprise intranet.
+
+# Server Role - Remote Administration Firewall Baseline
+This policy contains rules that allow administration servers and privileged access workstation to manage resources in the domain and is 
+intended to be linked to multiple OUs. The outbound rules can include multiple tiers and each tier devices will have rules that either allow or deny the connection.
