@@ -19,6 +19,7 @@
 .NOTES
    0.7.0   Initial release
    0.8.0   Added existing rule update function (using the "Group" parameter of rules), moved code blocks around, added new firewall rules, updated WMIPRVSE (TCP-Out) firewall rule, added progress bars, added some error handling and updated comments.
+   0.8.1   No changes to this script
 .EXAMPLE
    $TargetGpoName = "Tier 0 Firewall Baseline"
    $PathToGpoBackups = "C:\Temp\WindowsFirewall-GPO"
