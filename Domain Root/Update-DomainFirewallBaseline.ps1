@@ -19,6 +19,7 @@
 .NOTES
    0.7.1   Corrected $SourceGPOBackupId and $TargetGpoName.
    0.8.0   Added existing rule update function (using the "Group" parameter of rules), moved code blocks around, added new firewall rules, added progress bars, added some error handling and updated comments.
+   0.8.1   New rules added
 .EXAMPLE
    $TargetGpoName = "Domain Firewall Baseline"
    $PathToGpoBackups = "C:\Temp\WindowsFirewall-GPO"
@@ -197,6 +198,32 @@ function Version080Updates
     Write-Progress -Activity "Applying version 0.8.0 updates" -Completed
 }
 
+function Version081Updates
+{
+    $PlatformVersion =  "4.18.1807.18075-0"
+    $GuidComponent = $PlatformVersion.Split(".-")
+    $GuidComponent = $GuidComponent[2] + $GuidComponent[3]
+    Write-Progress -Activity "Applying version 0.8.1 updates - creating new rules" -PercentComplete "1"
+    [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{725a67e5-68cd-4217-a159-48c$GuidComponent}" -DisplayName "Antimalware Service Executable $PlatformVersion (TCP-Out)" -Group "ProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MsMpEng.exe" -ErrorAction SilentlyContinue -ErrorVariable "Version081Updates")
+    if ($Version081Updates.Exception.Message -like "Cannot create a file when that file already exists.*")
+    {
+        Write-Progress -Activity "Applying version 0.8.1 updates - creating new rules" -Completed
+        Write-warning "Version 0.8.1 new rules have been found, aborting new rule creation."
+    }
+    else
+    {
+        Write-Progress -Activity "Applying version 0.8.1 updates - creating new rules" -PercentComplete "50"
+        New-NetFirewallRule -GPOSession $GpoSession -Name "{e92e00fa-918f-4e62-bd3e-a91$GuidComponent}" -DisplayName "Antimalware Service Executable $PlatformVersion (TCP-Out)" -Direction "Outbound" -Protocol "TCP" -RemotePort "80","443" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MsMpEng.exe" 
+        New-NetFirewallRule -GPOSession $GpoSession -Name "{fabd86d5-92b1-4a15-b733-233$GuidComponent}" -DisplayName "Network Realtime Inspection Service $PlatformVersion (TCP-Out)" -Group "ProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\NisSrv.exe"
+        New-NetFirewallRule -GPOSession $GpoSession -Name "{4b36d08c-cf11-41e2-8d9d-803$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Group "ProxyServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $ProxyServers -Protocol "TCP" -RemotePort $ProxyServerPorts -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe"
+        New-NetFirewallRule -GPOSession $GpoSession -Name "{bd20eef3-283e-4fa1-ab43-471$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Direction "Outbound" -Protocol "TCP" -RemotePort "443" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe" 
+        New-NetFirewallRule -GPOSession $GpoSession -Name "{65c13740-9290-4caf-bd37-ac0$GuidComponent}" -DisplayName "Microsoft Malware Protection Command Line Utility $PlatformVersion (TCP-Out)" -Group "Wpad_PacFileServers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $WPAD_PACFileServers -Protocol "TCP" -RemotePort "80" -Program "%ALLUSERSPROFILE%\Microsoft\Windows Defender\Platform\$PlatformVersion\MpCmdRun.exe"
+        Write-Progress -Activity "Applying version 0.8.1 updates - creating new rules" -Completed
+        Write-Output "`n`nVersion 0.8.1 update to create new rules has completed"
+    }
+    Write-Progress -Activity "Applying version 0.8.1 updates - creating new rules" -Completed
+}
+
 function SaveGpo
 {
 $SaveGpo = Start-Job -ScriptBlock {Save-NetGPO -GPOSession $args[0]} -ArgumentList $GpoSession #Bug in PWSH 5.1.17134.165 (1803) prevents the interactive use of $Using:
@@ -359,10 +386,11 @@ if (Get-GPO -DisplayName $TargetGpoName -ErrorAction SilentlyContinue)
         {
             Write-Progress -Activity "Awaiting user input"
             Write-Output "`n`nA - Apply version 0.8.0 updates`n"
+            Write-Output "B - Apply version 0.8.1 updates`n"
             Write-Output "U - Update all domain resource IP addresses in the existing rules (post version 0.8.0 only)`n"
             Write-Output "X - Exit and save the GPO back to the domain`n"
             $Choice = Read-Host -Prompt "Type your choice and press Enter"
-            $Okay = $Choice -match "^[aux]+$"
+            $Okay = $Choice -match "^[abux]+$"
             if (-not $Okay) {Write-Output "`n`nInvalid selection"}
         }
         until ($Okay)
@@ -373,6 +401,13 @@ if (Get-GPO -DisplayName $TargetGpoName -ErrorAction SilentlyContinue)
                 Write-Progress -Activity "Awaiting user input" -Completed
                 . DefineExistingRulesGroups
                 . Version080Updates
+                break
+            }
+            "B"
+            {
+                Write-Progress -Activity "Awaiting user input" -Completed
+                . DefineExistingRulesGroups
+                . Version081Updates
                 break
             }
             "U"
@@ -471,4 +506,5 @@ foreach ($OutboundCrlServersRule in $OutboundCrlServersRules)
 }
 Write-Progress -Activity "Updating restored rules" -Completed
 . Version080Updates
+. Version081Updates
 . SaveGpo
