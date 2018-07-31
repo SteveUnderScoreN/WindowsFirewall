@@ -12,7 +12,7 @@
  - Link all policies to the 'Domain Root/Admin/Tier 0/Devices' OU, the policies are not linked to any OU by the scripts.  
 
 These policies are designed to be used in conjunction with the Microsoft baselines found [here](https://blogs.technet.microsoft.com/secguide/).  
-Create 2 group policy object that are specific to your domain and will contain firewall rules not defined in the baselines.  
+Create 2 group policy objects that are specific to your domain and will contain firewall rules not defined in the baselines e.g. "Server Role - Remote Administration Firewall" and "Tier 0 Firewall".  
 The 'Server Role' policy is designed to be used by the PAW and by administrative Remote Desktop jump servers so rules to administer the domain belong there.  
 The Tier policy is designed to contain rules for laptops and desktops and to define which resources are allowed access to the PAW over the network.  
 The policies should be linked in the following order;
@@ -26,8 +26,8 @@ The policies should be linked in the following order;
 Review the security event log for blocked connections (event ID 5157) and add them to the domain specific policies, the baselines should only be modified by the scripts provided.  
 If there are rules that should be added to the baseline raise an issue in GitHub.
 
-## When Using tier x administration policies;  
- - The SSDP discovery service should be set to disabled when using  and the 'Turn off multicast name resolution'
+## When Using these policies;  
+ - The SSDP discovery service should be set to disabled and the 'Turn off multicast name resolution'
 group policy setting should be enabled.  
  - Remove all Appx packages that can be removed (Get-AppxPackage|Remove-AppxPackage).
  - Disable One Drive
