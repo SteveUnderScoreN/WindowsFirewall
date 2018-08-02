@@ -5,7 +5,7 @@
     Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
     because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
 .NOTES
-    Build 1808
+    Build 1808.1
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
