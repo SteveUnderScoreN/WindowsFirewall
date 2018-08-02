@@ -5,7 +5,7 @@
     Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
     because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
 .NOTES
-    Build 1808.1
+    Build 1808.3
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
@@ -13,6 +13,7 @@ if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Co
     Write-Warning "This script invokes a GUI and cannot be run over a remot session or on PowerShell Core editions)"
     break
 }
+
 Add-Type -Assembly System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
@@ -66,7 +67,7 @@ function FindAllPoliciesWithFirewallRulesPage
         $FindAllPoliciesWithFirewallRulesGpoListBox.Show()
         Write-Host "Shown triggered" $FindAllPoliciesWithFirewallRulesForm.Visible
     })
-    $FindAllPoliciesWithFirewallRulesBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $FindAllPoliciesWithFirewallRulesForm.Width; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
+    $FindAllPoliciesWithFirewallRulesBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $FindAllPoliciesWithFirewallRulesForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $FindAllPoliciesWithFirewallRulesSaveFileDialog =  New-Object System.Windows.Forms.SaveFileDialog
     $FindAllPoliciesWithFirewallRulesSaveFileDialog.Filter = "txt files (*.txt)|*.txt|All files (*.*)|*.*"
     $FindAllPoliciesWithFirewallRulesCancelButton = New-Object Windows.Forms.Button -Property @{Text = "Exit"; Anchor = "Right"}
@@ -119,39 +120,75 @@ function EditExistingFirewallRulesPage
         $EditExistingFirewallRulesGpoListBox.Show()
         $EditExistingFirewallRulesBottomButtonPanel.Controls.Add($EditExistingFirewallRulesCancelButton)
         $EditExistingFirewallRulesBottomButtonPanel.Controls.Add($EditExistingFirewallRulesAcceptButton)
-        Write-Host "Shown triggered" $EditExistingFirewallRulesForm.Visible
     })
-    $EditExistingFirewallRulesBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $EditExistingFirewallRulesForm.Width; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
+    $EditExistingFirewallRulesBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $EditExistingFirewallRulesForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $EditExistingFirewallRulesCancelButton = New-Object Windows.Forms.Button -Property @{Text = "Exit"; Anchor = "Right"}
     $EditExistingFirewallRulesCancelButton.Left = $EditExistingFirewallRulesBottomButtonPanel.Width - $EditExistingFirewallRulesCancelButton.Width - 16
     $EditExistingFirewallRulesCancelButton.Add_Click({$ToolPageForm.Show()}) 
     $EditExistingFirewallRulesAcceptButton = New-Object Windows.Forms.Button -Property @{Text = "Select"; Anchor = "Right"} 
     $EditExistingFirewallRulesAcceptButton.Left = $EditExistingFirewallRulesCancelButton.Left - $EditExistingFirewallRulesAcceptButton.Width - 5
+    $EditExistingFirewallRulesAcceptButton.Add_Click(
+    {
+        if ($EditExistingFirewallRulesGpoListBox.Parent)
+        {
+            foreach ($EditExistingFirewallRulesRule in (Get-NetFirewallRule -PolicyStore ("$DomainName\$($EditExistingFirewallRulesGpoListBox.SelectedItem)")).DisplayName) #Use a [array]GPOSession
+            {
+                $EditExistingFirewallRulesRulesListBox.Items.Add($EditExistingFirewallRulesRule)
+            }
+            $EditExistingFirewallRulesRulesListBox.SelectionMode = "MultiExtended"
+            $EditExistingFirewallRulesStatusBar.Text = "Please select one or more rules to display."
+            $EditExistingFirewallRulesBottomButtonPanel.Controls.Add($EditExistingFirewallRulesBackButton)
+            $EditExistingFirewallRulesPanel.Controls.Remove($EditExistingFirewallRulesGpoListBox)
+            $EditExistingFirewallRulesPanel.Controls.Add($EditExistingFirewallRulesRulesListBox)
+            $EditExistingFirewallRulesRulesListBox.Focus()
+        }
+        elseif ($EditExistingFirewallRulesRulesListBox.Parent)
+        {
+            $EditExistingFirewallRulesStatusBar.Text = "Function not available in this build."
+            Start-Sleep -Milliseconds 400
+            $EditExistingFirewallRulesStatusBar.Text = "Please select one or more rules to display."    
+        }
+        elseif ($EditExistingFirewallRulesRuleSettingsListBox.Parent)
+        {
+            $EditExistingFirewallRulesStatusBar.Text = "Function not available in this build."
+            Start-Sleep -Milliseconds 400
+            $EditExistingFirewallRulesStatusBar.Text = "Please select one or more rules to display."    
+        }
+    })
+    $EditExistingFirewallRulesBackButton = New-Object Windows.Forms.Button -Property @{Text = "Back"; Anchor = "Right"}
+    $EditExistingFirewallRulesBackButton.Left = $EditExistingFirewallRulesAcceptButton.Left - $EditExistingFirewallRulesBackButton.Width - 5
+    $EditExistingFirewallRulesBackButton.Add_Click(
+    {
+        if ($EditExistingFirewallRulesRulesListBox.Parent)
+        {
+            $EditExistingFirewallRulesBottomButtonPanel.Controls.Remove($EditExistingFirewallRulesBackButton)
+            $EditExistingFirewallRulesPanel.Controls.Remove($EditExistingFirewallRulesRulesListBox)
+            $EditExistingFirewallRulesPanel.Controls.Add($EditExistingFirewallRulesGpoListBox)
+        }
+        elseif ($EditExistingFirewallRulesRuleSettingsListBox.Parent)
+        {
+            $EditExistingFirewallRulesPanel.Controls.Remove($EditExistingFirewallRulesRuleSettingsListBox)
+            $EditExistingFirewallRulesPanel.Controls.Add($EditExistingFirewallRulesRulesListBox)
+        }
+    })
     $EditExistingFirewallRulesForm.CancelButton = $EditExistingFirewallRulesCancelButton
     $EditExistingFirewallRulesForm.AcceptButton = $EditExistingFirewallRulesAcceptButton
     $EditExistingFirewallRulesGpoListBox = New-Object System.Windows.Forms.ListBox -Property @{AutoSize = $true; BackColor = "WhiteSmoke"; Dock = "Fill"}
     $EditExistingFirewallRulesGpoListBox.Add_DoubleClick(
     {
-        foreach ($EditExistingFirewallRulesRule in (Get-NetFirewallRule -PolicyStore ("$DomainName\$($EditExistingFirewallRulesGpoListBox.SelectedItem)")).DisplayName) #Use a [array]GPOSession
-        {
-            $EditExistingFirewallRulesRulesListBox.Items.Add($EditExistingFirewallRulesRule)
-        }
-        $EditExistingFirewallRulesRulesListBox.SelectionMode = "MultiExtended"
-        $EditExistingFirewallRulesPanel.Controls.Remove($EditExistingFirewallRulesGpoListBox)
-        $EditExistingFirewallRulesPanel.Controls.Add($EditExistingFirewallRulesRulesListBox)
-        $EditExistingFirewallRulesStatusBar.Text = "Please select one or more rules to display."
+       $EditExistingFirewallRulesAcceptButton.PerformClick()
     })
     $EditExistingFirewallRulesRulesListBox = New-Object System.Windows.Forms.ListBox -Property @{AutoSize = $true; BackColor = "WhiteSmoke"; Dock = "Fill"}
     $EditExistingFirewallRulesRulesListBox.Add_DoubleClick(
     {
-        $EditExistingFirewallRulesStatusBar.Text = "Function not available in this build."; Start-Sleep -Milliseconds 400; $EditExistingFirewallRulesStatusBar.Text = "Please select one or more rules to display."    
+        $EditExistingFirewallRulesAcceptButton.PerformClick()
         # Firewall rule builder - class - Get-Net... into array
         # Firewall rule editor - DataGridView with UpdateDataSourceForComboBoxCell
     })
     $EditExistingFirewallRulesRuleSettingsListBox = New-Object System.Windows.Forms.ListBox -Property @{AutoSize = $true; BackColor = "WhiteSmoke"; Dock = "Fill"}
     $EditExistingFirewallRulesRuleSettingsListBox.Add_DoubleClick(
     {
-        Write-Host $EditExistingFirewallRulesRuleSettingsListBox.SelectedItem
+        $EditExistingFirewallRulesAcceptButton.PerformClick()
     })
     $EditExistingFirewallRulesStatusBar = New-Object Windows.Forms.StatusBar -Property @{Dock = "Bottom"; Text = "Please select a GPO to display."} 
     $EditExistingFirewallRulesPanel = New-Object Windows.Forms.Panel -Property @{AutoScroll = $true;Anchor = "Top, Bottom, Left, Right"; Width = $EditExistingFirewallRulesForm.Width - 16; Height = $EditExistingFirewallRulesForm.Height - 82}
@@ -166,7 +203,7 @@ function ScanComputerForBlockedConnectionsPage
 {
     $ScanComputerForBlockedConnectionsForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog" ; StartPosition = "CenterScreen"; Width = 250; Height = 110; Text = "Scan computer for blocked connections"; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
     $ScanComputerForBlockedConnectionsBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $ScanComputerForBlockedConnectionsForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
-    $ScanComputerForBlockedConnectionsCancelButton = New-Object Windows.Forms.Button -Property @{Text = "Cancel"; Anchor = "Right"}
+    $ScanComputerForBlockedConnectionsCancelButton = New-Object Windows.Forms.Button -Property @{Text = "Exit"; Anchor = "Right"}
     $ScanComputerForBlockedConnectionsCancelButton.Left = $ScanComputerForBlockedConnectionsBottomButtonPanel.Width - $ScanComputerForBlockedConnectionsCancelButton.Width - 5
     $ScanComputerForBlockedConnectionsCancelButton.Add_Click({$ToolPageForm.Show()}) 
     $ScanComputerForBlockedConnectionsAcceptButton = New-Object Windows.Forms.Button -Property @{Text = "Scan"; Anchor = "Right"} 
@@ -279,7 +316,7 @@ function ExportExistingRulesToPowerShellCommandsPage
         $ExportExistingRulesToPowerShellCommandsBottomButtonPanel.Controls.Add($ExportExistingRulesToPowerShellCommandsSaveAsButton)
         $ExportExistingRulesToPowerShellCommandsGpoListBox.Show()
     })
-    $ExportExistingRulesToPowerShellCommandsBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $ExportExistingRulesToPowerShellCommandsForm.Width; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
+    $ExportExistingRulesToPowerShellCommandsBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $ExportExistingRulesToPowerShellCommandsForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $ExportExistingRulesToPowerShellCommandsSaveFileDialog =  New-Object System.Windows.Forms.SaveFileDialog
     $ExportExistingRulesToPowerShellCommandsSaveFileDialog.Filter = "PowerShell script (*.ps1)|*.ps1|All files (*.*)|*.*"
     $ExportExistingRulesToPowerShellCommandsCancelButton = New-Object Windows.Forms.Button -Property @{Text = "Exit"; Anchor = "Right"}
@@ -495,7 +532,7 @@ function MainThread
 {
     $DomainName = $env:USERDNSDOMAIN
     $ToolPageForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "Sizable"; StartPosition = "CenterScreen"; Width = 800; Height = 450; MinimumSize = New-Object Drawing.Size @(310,200); Text = "Windows firewall tool selection"} 
-    $ToolPageBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $ToolPageForm.Width; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
+    $ToolPageBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $ToolPageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $ToolPageCancelButton = New-Object Windows.Forms.Button -Property @{Text = "Exit"; Anchor = "Right"}
     $ToolPageCancelButton.Left = $ToolPageBottomButtonPanel.Width - $ToolPageCancelButton.Width - 16
     $ToolPageForm.CancelButton = $ToolPageCancelButton
@@ -531,18 +568,28 @@ function MainThread
     $ExportExistingRulesToPowerShellCommandsButton = New-Object Windows.Forms.Button -Property @{Margin = New-Object Windows.Forms.Padding @($Margin); Padding = New-Object Windows.Forms.Padding @($Padding); Width = 270; Height = 84; AutoSize = $true;AutoSizeMode = "GrowAndShrink"; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $ExportExistingRulesToPowerShellCommandsButton.Text = "Export existing`n rules to`nPowerShell commands" # As this button contains the most text all other buttons will inherit it's size
     $ExportExistingRulesToPowerShellCommandsButton.Add_Click({$ToolPageForm.Hide(); . ExportExistingRulesToPowerShellCommandsPage})
+    $ExportExistingRulesToPowerShellCommandsToolTip = New-Object System.Windows.Forms.ToolTip
+    $ExportExistingRulesToPowerShellCommandsToolTip.SetToolTip($ExportExistingRulesToPowerShellCommandsButton, "Use this tool to query a domain for policies`nthat have existing firewall rules and then`nexport a policy to a PowerShell script.`n100% complete.")
     $FindAllPoliciesWithFirewallRulesButton = New-Object Windows.Forms.Button -Property @{Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin; Size = $ExportExistingRulesToPowerShellCommandsButton.Size; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $FindAllPoliciesWithFirewallRulesButton.Text = "Find all policies with firewall rules"
     $FindAllPoliciesWithFirewallRulesButton.Add_Click({$ToolPageForm.Hide(); . FindAllPoliciesWithFirewallRulesPage})
+    $FindAllPoliciesWithFirewallRulesToolTip = New-Object System.Windows.Forms.ToolTip
+    $FindAllPoliciesWithFirewallRulesToolTip.SetToolTip($FindAllPoliciesWithFirewallRulesButton, "Use this tool to query a domain for policies`nthat have existing firewall rules, this list`ncan then be saved to a text file as reference.`n100% complete.")
     $UpdateDomainResourcesButton = New-Object Windows.Forms.Button -Property @{Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin; Size = $ExportExistingRulesToPowerShellCommandsButton.Size; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $UpdateDomainResourcesButton.Text = "  Update domain resources"
     $UpdateDomainResourcesButton.Add_Click({. UpdateDomainResourcesPage})
+    $UpdateDomainResourcesToolTip = New-Object System.Windows.Forms.ToolTip -Property @{AutoPopDelay = 7500}
+    $UpdateDomainResourcesToolTip.SetToolTip($UpdateDomainResourcesButton, "Use this tool to update domain resources that can be used`nto create or update firewall rules in group policy objects.`nNames can be used and will be translated into IP addresses`nwhich can be applied to multiple rules.`n0% complete.")
     $EditExistingFirewallRulesButton = New-Object Windows.Forms.Button -Property @{Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin; Size = $ExportExistingRulesToPowerShellCommandsButton.Size; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $EditExistingFirewallRulesButton.Text = "Edit existing firewall rules"
     $EditExistingFirewallRulesButton.Add_Click({$ToolPageForm.Hide(); . EditExistingFirewallRulesPage})
+    $EditExistingFirewallRulesToolTip = New-Object System.Windows.Forms.ToolTip -Property @{AutoPopDelay = 7500}
+    $EditExistingFirewallRulesToolTip.SetToolTip($EditExistingFirewallRulesButton, "Use this tool edit existing firewall rules, domain resources can be`nselected and DNS will be used to resolve all IP addresses to be used.`nMultiple rules can be edited at once and saved to a PowerShell`nscript or saved back to the domain.`n50% complete.")
     $ScanComputerForBlockedConnectionsButton = New-Object Windows.Forms.Button -Property @{Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin; Size = $ExportExistingRulesToPowerShellCommandsButton.Size; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $ScanComputerForBlockedConnectionsButton.Text = "Scan computer for blocked connections"
     $ScanComputerForBlockedConnectionsButton.Add_Click({$ToolPageForm.Hide(); . ScanComputerForBlockedConnectionsPage})
+    $ScanComputerForBlockedConnectionsToolTip = New-Object System.Windows.Forms.ToolTip
+    $ScanComputerForBlockedConnectionsToolTip.SetToolTip($ScanComputerForBlockedConnectionsButton, "Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`n50% complete.")
     $ToolPageStatusBar = New-Object Windows.Forms.StatusBar -Property @{Dock = "Bottom"; Text = "Please select a tool to launch."}
     $ToolPageBottomButtonPanel.Controls.Add($ToolPageCancelButton)
     $ToolButtonPanel.Controls.Add($ExportExistingRulesToPowerShellCommandsButton)
