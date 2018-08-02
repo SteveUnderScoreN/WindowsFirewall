@@ -536,7 +536,7 @@ function MainThread
     $FindAllPoliciesWithFirewallRulesButton.Add_Click({$ToolPageForm.Hide(); . FindAllPoliciesWithFirewallRulesPage})
     $UpdateDomainResourcesButton = New-Object Windows.Forms.Button -Property @{Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin; Size = $ExportExistingRulesToPowerShellCommandsButton.Size; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $UpdateDomainResourcesButton.Text = "  Update domain resources"
-    $UpdateDomainResourcesButton.Add_Click({$ToolPageForm.Hide(); . UpdateDomainResourcesPage})
+    $UpdateDomainResourcesButton.Add_Click({. UpdateDomainResourcesPage})
     $EditExistingFirewallRulesButton = New-Object Windows.Forms.Button -Property @{Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin; Size = $ExportExistingRulesToPowerShellCommandsButton.Size; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $EditExistingFirewallRulesButton.Text = "Edit existing firewall rules"
     $EditExistingFirewallRulesButton.Add_Click({$ToolPageForm.Hide(); . EditExistingFirewallRulesPage})
