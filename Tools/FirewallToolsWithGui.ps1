@@ -4,8 +4,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-.NOTES
-    Build 1808.4
+    Build 1808.5
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
@@ -41,6 +40,22 @@ function GetComputerFileSystemVariables
     $ProgramFiles = Invoke-Command -Session $ComputerPsSession -ScriptBlock {$env:ProgramFiles}
     $ProgramFilesX86 = Invoke-Command -Session $ComputerPsSession -ScriptBlock {${env:ProgramFiles(x86)}}
     $SystemRoot = Invoke-Command -Session $ComputerPsSession -ScriptBlock {$env:SystemRoot}
+}
+
+function PopUpMessage ($Message) # Need to use `r`n for newline
+{
+    $PopUpMessageForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog"; Autosize = $True; Location = @{X = ($ToolPageForm.Location.X + 25); Y = ($ToolPageForm.Location.Y + 25)};StartPosition = "Manual" ; MinimumSize = New-Object Drawing.Size @(150,100); MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
+    $PopUpMessageBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $PopUpMessageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
+    $PopUpMessageAcceptButton = New-Object Windows.Forms.Button -Property @{Text = "OK"; Anchor = "Right"}
+    $PopUpMessageAcceptButton.Add_Click({$PopUpMessageForm.Close()})
+    $PopUpMessageAcceptButton.Left = $PopUpMessageBottomButtonPanel.Width - $PopUpMessageAcceptButton.Width - 5
+    $PopUpMessageForm.CancelButton = $PopUpMessageAcceptButton
+    $PopUpMessageForm.AcceptButton = $PopUpMessageAcceptButton
+    $PopUpMessageTextBox = New-Object Windows.Forms.TextBox -Property @{Multiline = $true; BackColor = "GhostWhite"; ReadOnly = $true; Text = $Message; Height = $PopUpMessageForm.Height -28; Width = $PopUpMessageForm.Width - 6; AutoSize = $True}
+    $PopUpMessageBottomButtonPanel.Controls.Add($PopUpMessageAcceptButton)
+    $PopUpMessageForm.Controls.Add($PopUpMessageBottomButtonPanel)
+    $PopUpMessageForm.Controls.Add($PopUpMessageTextBox)
+    [void]$PopUpMessageForm.ShowDialog()
 }
 
 function FindAllPoliciesWithFirewallRulesPage
@@ -88,7 +103,7 @@ function FindAllPoliciesWithFirewallRulesPage
     $ToolPageForm.Controls.Add($FindAllPoliciesWithFirewallRulesPanel) # Added to the form first to set focus on this panel
     $ToolPageForm.Controls.Add($FindAllPoliciesWithFirewallRulesBottomButtonPanel)
     $ToolPageForm.Controls.Add($FindAllPoliciesWithFirewallRulesStatusBar) # Added to the form last to ensure the status bar gets put at the bottom
-    $ToolPageForm.ShowDialog()| Out-Null
+    [void]$ToolPageForm.ShowDialog()
 }
 
 function UpdateDomainResourcesPage
@@ -194,12 +209,12 @@ function EditExistingFirewallRulesPage
     $ToolPageForm.Controls.Add($EditExistingFirewallRulesPanel) # Added to the form first to set focus on this panel
     $ToolPageForm.Controls.Add($EditExistingFirewallRulesBottomButtonPanel)
     $ToolPageForm.Controls.Add($EditExistingFirewallRulesStatusBar) # Added to the form last to ensure the status bar gets put at the bottom
-    $ToolPageForm.ShowDialog()| Out-Null
+    [void]$ToolPageForm.ShowDialog()
 }
 
 function ScanComputerForBlockedConnectionsPage
 {
-    $ToolPageForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog" ; Location = @{X = ($ToolSelectionPageForm.Location.X + ($ToolSelectionPageForm.width/2)) - 125; Y = ($ToolSelectionPageForm.Location.Y + ($ToolSelectionPageForm.Height/2)) - 55}; StartPosition = "Manual"; Width = 250; Height = 110; Text = "Scan computer for blocked connections"; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
+    $ToolPageForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog"; Location = @{X = ($ToolSelectionPageForm.Location.X + ($ToolSelectionPageForm.width/2)) - 125; Y = ($ToolSelectionPageForm.Location.Y + ($ToolSelectionPageForm.Height/2)) - 55}; StartPosition = "Manual"; Width = 250; Height = 110; Text = "Scan computer for blocked connections"; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
     $ScanComputerForBlockedConnectionsBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $ToolPageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $ScanComputerForBlockedConnectionsCancelButton = New-Object Windows.Forms.Button -Property @{Text = "Exit"; Anchor = "Right"}
     $ScanComputerForBlockedConnectionsCancelButton.Left = $ScanComputerForBlockedConnectionsBottomButtonPanel.Width - $ScanComputerForBlockedConnectionsCancelButton.Width - 5
@@ -225,54 +240,57 @@ function ScanComputerForBlockedConnectionsPage
             $ScanComputerForBlockedConnectionsStatusBar.Text = "Scanning $Computer."
             [datetime]$NetworkStateChange =  (Get-WinEvent -ComputerName $Computer -FilterHashTable @{LogName = "Microsoft-Windows-NetworkProfile/Operational"; ID = 4004} -MaxEvents 1 -ErrorAction Stop).TimeCreated.AddSeconds("1")        
             $Events = (Get-WinEvent -ComputerName $Computer -FilterHashTable @{LogName = "Security"; ID = 5157; StartTime = $NetworkStateChange} -ErrorAction Stop) #Can these commands be run in the CIM session
-            if($null -eq $Events)
+            [xml[]]$Events = $Events.ToXml()
+            $ComputerCimSession = New-CimSession -ComputerName $Computer
+            $RunningSvchostServices = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service" -Filter "PathName LIKE '%svchost.exe%' AND State = 'Running'"
+            $RunningServices = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service" -Filter "State = 'Running'"
+            $ComputerCimSession| Remove-CimSession
+            $ComputerPsSession = New-PSSession -ComputerName $Computer
+            . GetComputerFileSystemVariables 
+            [array]$AdHarvest = Invoke-Command -Session $ComputerPsSession -ScriptBlock {(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\iphlpsvc\Parameters\ADHarvest\" -Name "LastFetchContents").LastFetchContents.Split(",")}
+            #$AdHarvest.Count
+            $ComputerPsSession| Remove-PSSession
+            [NetworkConnection[]]$InboundNetworkConnections = @()
+            [NetworkConnection[]]$OutboundNetworkConnections = @()
+            foreach ($Event in $Events)
             {
-                Write-Host "No matching events were found since the last network state change on $NetworkStateChange, event ID 4004 in log 'Microsoft-Windows-NetworkProfile/Operational'"
-                # I need a message function with just an OK button that takes a message parameter
+                #if (($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text' -like "\device\harddiskvolume*")
+                #    {
+                #        $HardDiskVolume = ((Select-String -InputObject (($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text') -Pattern '\\device\\harddiskvolume') -split("\\"))[2].TrimStart("harddiskvolume")
+                #        $Drive = (Get-Variable -Name HardDiskVolume$HardDiskVolume).Value
+                #    }
+                $NetworkConnection = New-Object -TypeName "NetworkConnection"
+                $NetworkConnection.ProcessID = ($Event.Event.EventData.Data.Where({$_.Name -EQ "ProcessID"})).'#text'
+                $NetworkConnection.Application = ($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text' -replace "\\device\\harddiskvolume\d+\\windows\\","%SystemRoot%\"  # -replace "\\device\\harddiskvolume\d+","$Drive" - Will need to search remote drives to populate the HarddiskVolume variables.
+                $NetworkConnection.Direction = (($Event.Event.EventData.Data.Where({$_.Name -EQ "Direction"})).'#text') -replace "%%14593","Outbound" -replace "%%14592","Inbound"
+                $NetworkConnection.SourceAddress = ($Event.Event.EventData.Data.Where({$_.Name -EQ "SourceAddress"})).'#text'
+                $NetworkConnection.SourcePort = ($Event.Event.EventData.Data.Where({$_.Name -EQ "SourcePort"})).'#text'
+                $NetworkConnection.DestAddress = ($Event.Event.EventData.Data.Where({$_.Name -EQ "DestAddress"})).'#text'
+                $NetworkConnection.DestPort = ($Event.Event.EventData.Data.Where({$_.Name -EQ "DestPort"})).'#text'
+                $NetworkConnection.Protocol = (($Event.Event.EventData.Data.Where({$_.Name -EQ "Protocol"})).'#text') -replace "^1$","ICMPv4" -replace "^6$","TCP" -replace "^17$","UDP" -replace "^58$","ICMPv6"
+                if ($NetworkConnection.Direction -eq "Inbound")
+                {
+                    $InboundNetworkConnections += $NetworkConnection
+                }
+                else
+                {
+                    $OutboundNetworkConnections += $NetworkConnection
+                }
+            }
+            $FilteredOutboundNetworkConnections = $OutboundNetworkConnections| Select-Object -Property * -ExcludeProperty "Direction","SourcePort" -Unique| Out-GridView
+            $FilteredInboundNetworkConnections = $InboundNetworkConnections| Select-Object -Property * -ExcludeProperty "Direction","DestPort" -Unique| Out-GridView
+            $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
+        }
+        catch [System.Exception]
+        {
+            if($error[0].Exception.Message -eq "No events were found that match the specified selection criteria.")
+            {
+                PopUpMessage -Message "No matching events were found since the last network`r`nstate change on $NetworkStateChange, event ID 4004 in`r`nlog 'Microsoft-Windows-NetworkProfile/Operational'"
             }
             else
             {
-                [xml[]]$Events = $Events.ToXml()
-                $ComputerCimSession = New-CimSession -ComputerName $Computer
-                $RunningSvchostServices = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service" -Filter "PathName LIKE '%svchost.exe%' AND State = 'Running'"
-                $RunningServices = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service" -Filter "State = 'Running'"
-                $ComputerCimSession| Remove-CimSession
-                $ComputerPsSession = New-PSSession -ComputerName $Computer
-                . GetComputerFileSystemVariables 
-                [array]$AdHarvest = Invoke-Command -Session $ComputerPsSession -ScriptBlock {(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\iphlpsvc\Parameters\ADHarvest\" -Name "LastFetchContents").LastFetchContents.Split(",")}
-                #$AdHarvest.Count
-                $ComputerPsSession| Remove-PSSession
-                [NetworkConnection[]]$InboundNetworkConnections = @()
-                [NetworkConnection[]]$OutboundNetworkConnections = @()
-                foreach ($Event in $Events)
-                {
-                    #if (($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text' -like "\device\harddiskvolume*")
-                    #    {
-                    #        $HardDiskVolume = ((Select-String -InputObject (($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text') -Pattern '\\device\\harddiskvolume') -split("\\"))[2].TrimStart("harddiskvolume")
-                    #        $Drive = (Get-Variable -Name HardDiskVolume$HardDiskVolume).Value
-                    #    }
-                    $NetworkConnection = New-Object -TypeName "NetworkConnection"
-                    $NetworkConnection.ProcessID = ($Event.Event.EventData.Data.Where({$_.Name -EQ "ProcessID"})).'#text'
-                    $NetworkConnection.Application = ($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text' -replace "\\device\\harddiskvolume\d+\\windows\\","%SystemRoot%\"  # -replace "\\device\\harddiskvolume\d+","$Drive" - Will need to search remote drives to populate the HarddiskVolume variables.
-                    $NetworkConnection.Direction = (($Event.Event.EventData.Data.Where({$_.Name -EQ "Direction"})).'#text') -replace "%%14593","Outbound" -replace "%%14592","Inbound"
-                    $NetworkConnection.SourceAddress = ($Event.Event.EventData.Data.Where({$_.Name -EQ "SourceAddress"})).'#text'
-                    $NetworkConnection.SourcePort = ($Event.Event.EventData.Data.Where({$_.Name -EQ "SourcePort"})).'#text'
-                    $NetworkConnection.DestAddress = ($Event.Event.EventData.Data.Where({$_.Name -EQ "DestAddress"})).'#text'
-                    $NetworkConnection.DestPort = ($Event.Event.EventData.Data.Where({$_.Name -EQ "DestPort"})).'#text'
-                    $NetworkConnection.Protocol = (($Event.Event.EventData.Data.Where({$_.Name -EQ "Protocol"})).'#text') -replace "^1$","ICMPv4" -replace "^6$","TCP" -replace "^17$","UDP" -replace "^58$","ICMPv6"
-                    if ($NetworkConnection.Direction -eq "Inbound")
-                    {
-                        $InboundNetworkConnections += $NetworkConnection
-                    }
-                    else
-                    {
-                        $OutboundNetworkConnections += $NetworkConnection
-                    }
-                }
-                $FilteredOutboundNetworkConnections = $OutboundNetworkConnections| Select-Object -Property * -ExcludeProperty "Direction","SourcePort" -Unique| Out-GridView
-                $FilteredInboundNetworkConnections = $InboundNetworkConnections| Select-Object -Property * -ExcludeProperty "Direction","DestPort" -Unique| Out-GridView
+                $ScanComputerForBlockedConnectionsStatusBar.Text = "Scan failed."; Start-Sleep -Milliseconds 400; $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
             }
-            $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
         }
         catch
         {
@@ -288,7 +306,7 @@ function ScanComputerForBlockedConnectionsPage
     $ToolPageForm.Controls.Add($ScanComputerForBlockedConnectionsTextBox)
     $ToolPageForm.Controls.Add($ScanComputerForBlockedConnectionsBottomButtonPanel)
     $ToolPageForm.Controls.Add($ScanComputerForBlockedConnectionsStatusBar)
-    $ToolPageForm.ShowDialog()| Out-Null
+    [void]$ToolPageForm.ShowDialog()
 }
 
 function ExportExistingRulesToPowerShellCommandsPage
@@ -521,7 +539,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
     $ToolPageForm.Controls.Add($ExportExistingRulesToPowerShellCommandsPanel) # Added to the form first to set focus on this panel
     $ToolPageForm.Controls.Add($ExportExistingRulesToPowerShellCommandsBottomButtonPanel)
     $ToolPageForm.Controls.Add($ExportExistingRulesToPowerShellCommandsStatusBar) # Added to the form last to ensure the status bar gets put at the bottom
-    $ToolPageForm.ShowDialog()| Out-Null
+    [void]$ToolPageForm.ShowDialog()
 }
 
 function MainThread
@@ -598,6 +616,6 @@ function MainThread
     $ToolSelectionPageForm.Controls.Add($ToolButtonPanel) 
     $ToolSelectionPageForm.Controls.Add($ToolSelectionPageBottomButtonPanel) 
     $ToolSelectionPageForm.Controls.Add($ToolSelectionPageStatusBar) # Added to the form last to ensure the status bar gets put at the bottom
-    $ToolSelectionPageForm.ShowDialog()| Out-Null
+    [void]$ToolSelectionPageForm.ShowDialog()
 }
 . MainThread
