@@ -4,7 +4,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1808.5
+    Build 1808.6
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
@@ -44,14 +44,17 @@ function GetComputerFileSystemVariables
 
 function PopUpMessage ($Message) # Need to use `r`n for newline
 {
-    $PopUpMessageForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog"; Autosize = $True; Location = @{X = ($ToolPageForm.Location.X + 25); Y = ($ToolPageForm.Location.Y + 25)};StartPosition = "Manual" ; MinimumSize = New-Object Drawing.Size @(150,100); MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
+    $PopUpMessageForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog"; Location = @{X = ($ToolPageForm.Location.X + 25); Y = ($ToolPageForm.Location.Y + 25)};StartPosition = "Manual" ; MinimumSize = @{Width = 150; Height = 100}; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
     $PopUpMessageBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $PopUpMessageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $PopUpMessageAcceptButton = New-Object Windows.Forms.Button -Property @{Text = "OK"; Anchor = "Right"}
     $PopUpMessageAcceptButton.Add_Click({$PopUpMessageForm.Close()})
     $PopUpMessageAcceptButton.Left = $PopUpMessageBottomButtonPanel.Width - $PopUpMessageAcceptButton.Width - 5
     $PopUpMessageForm.CancelButton = $PopUpMessageAcceptButton
     $PopUpMessageForm.AcceptButton = $PopUpMessageAcceptButton
-    $PopUpMessageTextBox = New-Object Windows.Forms.TextBox -Property @{Multiline = $true; BackColor = "GhostWhite"; ReadOnly = $true; Text = $Message; Height = $PopUpMessageForm.Height -28; Width = $PopUpMessageForm.Width - 6; AutoSize = $True}
+    $PopUpMessageTextBox = New-Object Windows.Forms.TextBox -Property @{Multiline = $true; BackColor = "GhostWhite"; ReadOnly = $true; Text = $Message; MinimumSize = @{Width = 141; Height = 70}}
+    $PopUpMessageTextBox.Size = $PopUpMessageTextBox.PreferredSize
+    $PopUpMessageForm.Width = $PopUpMessageTextBox.Width + 9
+    $PopUpMessageForm.Height = $PopUpMessageTextBox.Height + 30
     $PopUpMessageBottomButtonPanel.Controls.Add($PopUpMessageAcceptButton)
     $PopUpMessageForm.Controls.Add($PopUpMessageBottomButtonPanel)
     $PopUpMessageForm.Controls.Add($PopUpMessageTextBox)
@@ -545,7 +548,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
 function MainThread
 {
     $DomainName = $env:USERDNSDOMAIN
-    $ToolSelectionPageForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "Sizable"; StartPosition = "CenterScreen"; Width = 800; Height = 450; MinimumSize = New-Object Drawing.Size @(310,200); Text = "Windows firewall tool selection"} 
+    $ToolSelectionPageForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "Sizable"; StartPosition = "CenterScreen"; Width = 800; Height = 450; MinimumSize = @{Width = 310; Height = 200}; Text = "Windows firewall tool selection"} 
     $ToolSelectionPageBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $ToolSelectionPageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $ToolSelectionPageCancelButton = New-Object Windows.Forms.Button -Property @{Text = "Exit"; Anchor = "Right"}
     $ToolSelectionPageCancelButton.Left = $ToolSelectionPageBottomButtonPanel.Width - $ToolSelectionPageCancelButton.Width - 16
