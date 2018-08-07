@@ -4,7 +4,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1808.6
+    Build 1808.7
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
@@ -30,7 +30,7 @@ function GroupPoliciesWithExistingFirewallRules
         }
     }
     Write-Progress -Activity "Searching group policy objects" -Completed
-    Remove-Variable GroupPolicyObjectIndex
+    Remove-Variable -Name "GroupPolicyObjectIndex" -Force -ErrorAction SilentlyContinue
     $Script:GroupPoliciesWithExistingFirewallRules = $Script:GroupPoliciesWithExistingFirewallRules| Sort-Object
 }
 
@@ -44,14 +44,14 @@ function GetComputerFileSystemVariables
 
 function PopUpMessage ($Message) # Need to use `r`n for newline
 {
-    $PopUpMessageForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog"; Location = @{X = ($ToolPageForm.Location.X + 25); Y = ($ToolPageForm.Location.Y + 25)};StartPosition = "Manual" ; MinimumSize = @{Width = 150; Height = 100}; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
+    $PopUpMessageForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog"; Location = @{X = ($ToolPageForm.Location.X + 25); Y = ($ToolPageForm.Location.Y + 25)};StartPosition = "Manual" ; MinimumSize = @{Width = 150; Height = 100}; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false; AutoScroll = $true}
     $PopUpMessageBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $PopUpMessageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $PopUpMessageAcceptButton = New-Object Windows.Forms.Button -Property @{Text = "OK"; Anchor = "Right"}
     $PopUpMessageAcceptButton.Add_Click({$PopUpMessageForm.Close()})
     $PopUpMessageAcceptButton.Left = $PopUpMessageBottomButtonPanel.Width - $PopUpMessageAcceptButton.Width - 5
     $PopUpMessageForm.CancelButton = $PopUpMessageAcceptButton
     $PopUpMessageForm.AcceptButton = $PopUpMessageAcceptButton
-    $PopUpMessageTextBox = New-Object Windows.Forms.TextBox -Property @{Multiline = $true; BackColor = "GhostWhite"; ReadOnly = $true; Text = $Message; MinimumSize = @{Width = 141; Height = 70}}
+    $PopUpMessageTextBox = New-Object Windows.Forms.TextBox -Property @{Multiline = $true; BackColor = "GhostWhite"; ReadOnly = $true; Text = $Message; MinimumSize = @{Width = 141; Height = 70}; MaximumSize = @{Width = 500; Height = 500}}
     $PopUpMessageTextBox.Size = $PopUpMessageTextBox.PreferredSize
     $PopUpMessageForm.Width = $PopUpMessageTextBox.Width + 9
     $PopUpMessageForm.Height = $PopUpMessageTextBox.Height + 30
@@ -59,6 +59,29 @@ function PopUpMessage ($Message) # Need to use `r`n for newline
     $PopUpMessageForm.Controls.Add($PopUpMessageBottomButtonPanel)
     $PopUpMessageForm.Controls.Add($PopUpMessageTextBox)
     [void]$PopUpMessageForm.ShowDialog()
+}
+
+function CancelAccept ($Message,$CancelButtonText,$AcceptButtonText) # Need to use `r`n for newline
+{
+    $CancelAcceptForm = New-Object Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog"; Location = @{X = ($ToolPageForm.Location.X + 25); Y = ($ToolPageForm.Location.Y + 25)};StartPosition = "Manual" ; MinimumSize = @{Width = 200; Height = 100}; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
+    $CancelAcceptForm.Add_Shown({$CancelAcceptAcceptButton.Focus()})
+    $CancelAcceptBottomButtonPanel = New-Object Windows.Forms.Panel -Property @{Width = $CancelAcceptForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
+    $CancelAcceptCancelButton = New-Object Windows.Forms.Button -Property @{Text = $CancelButtonText; Anchor = "Right"}
+    $CancelAcceptCancelButton.Left = $CancelAcceptBottomButtonPanel.Width - $CancelAcceptCancelButton.Width - 5
+    $CancelAcceptAcceptButton = New-Object Windows.Forms.Button -Property @{Text = $AcceptButtonText; Anchor = "Right"}
+    $CancelAcceptAcceptButton.Left = $CancelAcceptCancelButton.Left - $CancelAcceptAcceptButton.Width - 5
+    $CancelAcceptAcceptButton.DialogResult = "OK"
+    $CancelAcceptForm.CancelButton = $CancelAcceptCancelButton
+    $CancelAcceptForm.AcceptButton = $CancelAcceptAcceptButton
+    $CancelAcceptTextBox = New-Object Windows.Forms.TextBox -Property @{Multiline = $true; BackColor = "GhostWhite"; ReadOnly = $true; Text = $Message; MinimumSize = @{Width = 191; Height = 70}}
+    $CancelAcceptTextBox.Size = $CancelAcceptTextBox.PreferredSize
+    $CancelAcceptForm.Width = $CancelAcceptTextBox.Width + 9
+    $CancelAcceptForm.Height = $CancelAcceptTextBox.Height + 30
+    $CancelAcceptBottomButtonPanel.Controls.Add($CancelAcceptCancelButton)
+    $CancelAcceptBottomButtonPanel.Controls.Add($CancelAcceptAcceptButton)
+    $CancelAcceptForm.Controls.Add($CancelAcceptBottomButtonPanel)
+    $CancelAcceptForm.Controls.Add($CancelAcceptTextBox)
+    return $CancelAcceptForm.ShowDialog() 
 }
 
 function FindAllPoliciesWithFirewallRulesPage
@@ -111,7 +134,7 @@ function FindAllPoliciesWithFirewallRulesPage
 
 function UpdateDomainResourcesPage
 {
-    $ToolSelectionPageStatusBar.Text = "Tool not available in this build."; Start-Sleep -Milliseconds 400; $ToolSelectionPageStatusBar.Text = "Please select a tool to launch."
+    . PopUpMessage -Message "Tool not available in this build."
 }
 
 function EditExistingFirewallRulesPage
@@ -160,15 +183,11 @@ function EditExistingFirewallRulesPage
         }
         elseif ($EditExistingFirewallRulesRulesListBox.Parent)
         {
-            $EditExistingFirewallRulesStatusBar.Text = "Function not available in this build."
-            Start-Sleep -Milliseconds 400
-            $EditExistingFirewallRulesStatusBar.Text = "Please select one or more rules to display."    
+            . PopUpMessage -Message "Function not available in this build."
         }
         elseif ($EditExistingFirewallRulesRuleSettingsListBox.Parent)
         {
-            $EditExistingFirewallRulesStatusBar.Text = "Function not available in this build."
-            Start-Sleep -Milliseconds 400
-            $EditExistingFirewallRulesStatusBar.Text = "Please select one or more rules to display."    
+            . PopUpMessage -Message "Function not available in this build."   
         }
     })
     $EditExistingFirewallRulesBackButton = New-Object Windows.Forms.Button -Property @{Text = "Back"; Anchor = "Right"}
@@ -226,7 +245,7 @@ function ScanComputerForBlockedConnectionsPage
     $ScanComputerForBlockedConnectionsAcceptButton.Left = $ScanComputerForBlockedConnectionsCancelButton.Left - $ScanComputerForBlockedConnectionsAcceptButton.Width - 5
     $ScanComputerForBlockedConnectionsAcceptButton.Add_Click(
     {
-        $Computer = $ScanComputerForBlockedConnectionsTextBox.Text
+        [String]$Computer = $ScanComputerForBlockedConnectionsTextBox.Text
         class NetworkConnection
         {
             [int] $ProcessID
@@ -240,6 +259,79 @@ function ScanComputerForBlockedConnectionsPage
         }
         try
         {
+            try
+            {
+                if ([ipaddress]$Computer)
+                {
+                    [ipaddress]$IpAddresses = $Computer
+                }
+            }
+            catch [Management.Automation.PSInvalidCastException]
+            {
+                $ScanComputerForBlockedConnectionsStatusBar.Text =  "Resolving IP addresses."
+                [ipaddress[]]$IpAddresses = (Resolve-DnsName $Computer -ErrorAction Stop).IpAddress
+            }
+            Remove-Variable -Name "JobNumber" -Force -ErrorAction SilentlyContinue
+            Remove-Variable -Name "NetworkConnectivityJobs" -Force -ErrorAction SilentlyContinue
+            foreach ($IpAddress in $IpAddresses) # Because Test-NetConnection does the IP addresses one after another, uses Ping and doesn't provide feedback during the test I've opted to use asynchronous TCP jobs and monitor for the state of those. This also allows me to abandon the jobs if the tests are taking too long.
+            {
+                $JobNumber += 1
+                if ($IpAddress.AddressFamily -eq "InterNetworkV6")
+                {
+                    $TcpClient = New-Object System.Net.Sockets.TcpClient("InterNetworkV6")
+                }
+                else
+                {
+                    $TcpClient = New-Object System.Net.Sockets.TcpClient("InterNetwork")
+                }
+                New-Variable -Name ("NetworkConnectivityJobs" + "$JobNumber") -Value ($TcpClient.ConnectAsync($IpAddress,135))
+                [array]$NetworkConnectivityJobs += Get-Variable -Name ("NetworkConnectivityJobs" + "$JobNumber")
+            }
+            $WaitTime = (Get-Date).AddSeconds(10)
+            Remove-Variable -Name "NetworkConnectivityJobRanToCompletion" -Force -ErrorAction SilentlyContinue
+            $ScanComputerForBlockedConnectionsStatusBar.Text = "Trying $(($NetworkConnectivityJobs).Count) IP address/es."
+            do
+            {
+                $NetworkConnectivityJobRanToCompletion = $false
+                $JobsWaitingForActivation = $false
+                foreach ($NetworkConnectivityJob in $NetworkConnectivityJobs)
+                {
+                    if ($NetworkConnectivityJob.Value.Status -eq "RanToCompletion")
+                    {
+                        $NetworkConnectivityJobRanToCompletion = $true
+                    }
+                    if ($NetworkConnectivityJob.Value.Status -eq "WaitingForActivation")
+                    {
+                        $JobsWaitingForActivation = $true
+                    }
+                }
+                if ($NetworkConnectivityJobRanToCompletion -eq $false)
+                {
+                    if ($JobsWaitingForActivation -eq $false)
+                        {
+                        if ((. CancelAccept -Message "All network connectivity jobs have failed,`r`ndo you want to display diagnostic information?" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "OK")
+                        {
+                            Remove-Variable -Name "DiagnosticResults" -Force -ErrorAction SilentlyContinue
+                            foreach ($NetworkConnectivityJob in $NetworkConnectivityJobs)
+                            {
+                                [array]$DiagnosticResults += $NetworkConnectivityJob.Value.Exception.InnerException
+                            }
+                            . PopUpMessage -Message $DiagnosticResults
+                            throw "Connectivity test failed."   
+                        }
+                    }
+                    if ((Get-Date) -gt $WaitTime)
+                    {
+                        if ((. CancelAccept -Message "Network connectivity tests are taking longer than expected,`r`nthis function requires TCP ports 135,5985 and 49152-65535.`r`nDo you want to continue?" -CancelButtonText "Abort" -AcceptButtonText "Continue") -eq "Cancel")
+                        {
+                            throw "Connectivity test aborted, scanning cancelled."
+                        }
+                        $WaitTime = (Get-Date).AddSeconds(10)
+                    }
+                    Start-Sleep -Milliseconds 500
+                }
+            }
+            Until ($NetworkConnectivityJobRanToCompletion -eq $true)
             $ScanComputerForBlockedConnectionsStatusBar.Text = "Scanning $Computer."
             [datetime]$NetworkStateChange =  (Get-WinEvent -ComputerName $Computer -FilterHashTable @{LogName = "Microsoft-Windows-NetworkProfile/Operational"; ID = 4004} -MaxEvents 1 -ErrorAction Stop).TimeCreated.AddSeconds("1")        
             $Events = (Get-WinEvent -ComputerName $Computer -FilterHashTable @{LogName = "Security"; ID = 5157; StartTime = $NetworkStateChange} -ErrorAction Stop) #Can these commands be run in the CIM session
@@ -284,21 +376,33 @@ function ScanComputerForBlockedConnectionsPage
             $FilteredInboundNetworkConnections = $InboundNetworkConnections| Select-Object -Property * -ExcludeProperty "Direction","DestPort" -Unique| Out-GridView
             $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
         }
-        catch [System.Exception]
+        catch [System.Management.Automation.RuntimeException]
         {
-            if($error[0].Exception.Message -eq "No events were found that match the specified selection criteria.")
+            if ($error[0].Exception.Message -eq "Connectivity test aborted, scanning cancelled.")
             {
-                PopUpMessage -Message "No matching events were found since the last network`r`nstate change on $NetworkStateChange, event ID 4004 in`r`nlog 'Microsoft-Windows-NetworkProfile/Operational'"
+            }
+            elseif ($error[0].Exception.Message -eq "Connectivity test failed.")
+            {
+                . PopUpMessage -Message "Connectivity test failed, is`r`n$Computer`r`navalable on the network and are`r`nTCP ports 135,5985 and 49152-65535`r`nopen from this computer."
+            }
+            elseif ($error[0].Exception.Message -like "*: DNS name does not exist")
+            {
+                . PopUpMessage -Message "The hostname $Computer couldn not be resolved,`r`ncheck connectivity to the DNS infrastructure`r`nand check there is a valid host record for`r`n$Computer."
+            }
+            elseif ($error[0].Exception.Message -eq "No events were found that match the specified selection criteria.")
+            {
+                . PopUpMessage -Message "No matching events were found since the last network`r`nstate change on $NetworkStateChange, event ID 4004 in`r`nlog 'Microsoft-Windows-NetworkProfile/Operational'"
             }
             else
             {
-                $ScanComputerForBlockedConnectionsStatusBar.Text = "Scan failed."; Start-Sleep -Milliseconds 400; $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
+                . PopUpMessage -Message "Scan failed.`r`n$($error[0].Exception.Message)System.Management.Automation.RuntimeException"
             }
         }
         catch
         {
-            $ScanComputerForBlockedConnectionsStatusBar.Text = "Scan failed."; Start-Sleep -Milliseconds 400; $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
+            . PopUpMessage -Message "Scan failed.`r`n$($error[0].Exception.Message)"
         }
+        $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
     })
     $ToolPageForm.CancelButton = $ScanComputerForBlockedConnectionsCancelButton
     $ToolPageForm.AcceptButton = $ScanComputerForBlockedConnectionsAcceptButton
@@ -527,7 +631,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
                 #$FirewallRule| Get-NetFirewallSecurityFilter
             }
             $Commands| Out-File $ExportExistingRulesToPowerShellCommandsSaveFileDialog.FileName
-            Remove-Variable GPOSession
+            Remove-Variable -Name "GPOSession" -Force -ErrorAction SilentlyContinue
             $ExportExistingRulesToPowerShellCommandsStatusBar.Text = "Select a policy to export."
             $ExportExistingRulesToPowerShellCommandsGpoListBox.Show()
             $ExportExistingRulesToPowerShellCommandsBottomButtonPanel.Controls.Remove($ProgressBar)
@@ -608,7 +712,7 @@ function MainThread
     $ScanComputerForBlockedConnectionsButton.Text = "Scan computer for blocked connections"
     $ScanComputerForBlockedConnectionsButton.Add_Click({$ToolSelectionPageForm.Hide(); . ScanComputerForBlockedConnectionsPage})
     $ScanComputerForBlockedConnectionsToolTip = New-Object System.Windows.Forms.ToolTip
-    $ScanComputerForBlockedConnectionsToolTip.SetToolTip($ScanComputerForBlockedConnectionsButton, "Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`n50% complete.")
+    $ScanComputerForBlockedConnectionsToolTip.SetToolTip($ScanComputerForBlockedConnectionsButton, "Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`n60% complete.")
     $ToolSelectionPageStatusBar = New-Object Windows.Forms.StatusBar -Property @{Dock = "Bottom"; Text = "Please select a tool to launch."}
     $ToolSelectionPageBottomButtonPanel.Controls.Add($ToolSelectionPageCancelButton)
     $ToolButtonPanel.Controls.Add($ExportExistingRulesToPowerShellCommandsButton)
@@ -621,4 +725,4 @@ function MainThread
     $ToolSelectionPageForm.Controls.Add($ToolSelectionPageStatusBar) # Added to the form last to ensure the status bar gets put at the bottom
     [void]$ToolSelectionPageForm.ShowDialog()
 }
-. MainThread
+MainThread
