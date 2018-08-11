@@ -4,7 +4,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1808.8
+    Build 1808.9
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
@@ -95,6 +95,118 @@ function UpdateDataSourceForComboBoxCell ($ArrayList,$DataGridView)
             $DataGridView.rows[$DataGridViewRowcount].Cells[$ComboBoxColumn].DataSource = $ArrayList[$DataGridViewRowcount].$ComboBoxColumn
             $DataGridView.rows[$DataGridViewRowcount].Cells[$ComboBoxColumn].Value = $ArrayList[$DataGridViewRowcount].$ComboBoxColumn[0]
         }
+    }
+}
+
+function DomainResources
+{
+    # Version 0.7.0 domain resources
+    $DomainControllers = "127.0.0.1","SERVERNAME"
+    $ProxyServerPorts = "8080"
+    $ProxyServers = "LocalSubnet","Intranet"
+    $DnsServers = $DomainControllers # Specify these if you do not have DNS on each domain controller or you have additional DNS servers
+    $CrlServers = "LocalSubnet","Intranet"
+    $Wpad_PacFileServers = "LocalSubnet","Intranet"
+    $TierXManagementServers = "LocalSubnet","Intranet" # These are used in tier X firewall baselines to define which computers can manage the device at a particular tier
+    $SqlServers = "127.0.0.4"
+    $WebServers = "LocalSubnet","Intranet"
+    $FileServers = "LocalSubnet","Intranet"
+    $KeyManagementServers = "LocalSubnet","Intranet"
+    $BackupServers = "127.0.0.1"
+    $ClusteredNodesAndManagementAddresses = "LocalSubnet","Intranet"
+    $ExternalVpnEndpoints = "127.0.0.2 -  127.0.0.3" # This is the externally resolvable IPSec hostname or address
+    $DirectAccessServers = "127.0.0.128/25" # This is the externally resolvable hostname or address of the DirectAccess IPHTTPS endpoint
+    $TrustedDhcpSubnets = "Any" # This is client enterprise subnets and includes subnets issued by the VPN server, "Predefined set of computers" cannot be used here
+    # END of version 0.7.0 domain resources
+    # Version 0.8.0 domain resources
+    $ServerRoleAdministrationServers = "LocalSubnet","Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
+    # END of version 0.8.0 domain resources
+    $Resources = "DomainControllers","ProxyServers","DnsServers","CrlServers","Wpad_PacFileServers","TierXManagementServers","SqlServers","WebServers","FileServers","KeyManagementServers","BackupServers","ClusteredNodesAndManagementAddresses","ExternalVpnEndpoints","DirectAccessServers","TrustedDhcpSubnets","ServerRoleAdministrationServers"
+    foreach ($Resource in $Resources)
+    {
+        $ResourceIndex ++
+        Write-Progress -Activity "Updating resource arrays" -Status "$Resource" -PercentComplete ($ResourceIndex*(100/$Resources.Count))
+        $Addresses = @()
+        $Names = (Get-Variable -Name $Resource).Value
+        foreach ($Name in $Names.replace(" ",""))
+        {
+            switch -Wildcard ($Name)
+            {
+                "*/*"           {
+                                    $Addresses += $Name # A forward slash indicates a subnet has been specified
+                                    break
+                                }
+                "LocalSubnet"   {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "Intranet"      {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "DNS"           {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "DHCP"          {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "DefaultGateway"{
+                                    $Addresses += $Name
+                                    break
+                                }
+                "Internet"      {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "Any"           {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "*-*"           {
+                                    try
+                                    {
+                                        if ([ipaddress]$Name.Split("-")[0] -and [ipaddress]$Name.Split("-")[1])
+                                        {
+                                            $Addresses += $Name # If each side of the hyphen is an IP address then a range has been specified
+                                        }
+                                    }
+                                    catch [Management.Automation.PSInvalidCastException]
+                                    {
+                                        . AttemptResolveDnsName $Name
+                                    }
+                                }
+                default         {
+                                    try
+                                    {
+                                        if ([ipaddress]$Name)
+                                        {
+                                            $Addresses += $Name
+                                        }
+                                    }
+                                    catch [Management.Automation.PSInvalidCastException]
+                                    {
+                                        . AttemptResolveDnsName $Name
+                                    }
+                                }
+            }
+        }
+        Set-Variable -Name $Resource -Value $Addresses
+    }
+    Write-Progress -Activity "Updating resource arrays" -Completed
+    Remove-Variable ResourceIndex
+}
+
+function AttemptResolveDnsName ($Name)
+{
+    try
+    {
+        $Addresses += (Resolve-DnsName $Name -ErrorAction Stop).IPAddress
+    }
+    catch
+    {
+        Write-warning "The hostname $Name could not be resolved, check connectivity to the DNS infrastructure and ensure there is a valid host record for $Name."
     }
 }
 
@@ -314,14 +426,14 @@ function EditExistingFirewallRulesPage
         {
             if ($PropertyName -in "DisplayName","Description","Group","Enabled","Direction","Action","Protocol","Program","Package","Service")
             {
-                $EditExistingFirewallRulesDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewTextBoxColumn"))
+                $EditExistingFirewallRulesDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewTextBoxColumn" -Property @{ReadOnly = $true}))
                 $EditExistingFirewallRulesDataGridView.Columns[$ColumnIndex].Name = $PropertyName
                 $EditExistingFirewallRulesDataGridView.Columns["$PropertyName"].DataPropertyName = $PropertyName
                 $ColumnIndex ++
             }
             else
             {
-                $EditExistingFirewallRulesDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewComboBoxColumn"))
+                $EditExistingFirewallRulesDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewComboBoxColumn" -Property @{ReadOnly = $true}))
                 $EditExistingFirewallRulesDataGridView.Columns[$ColumnIndex].Name = $PropertyName
                 $ColumnIndex ++
             }
@@ -449,6 +561,10 @@ function ScanComputerForBlockedConnectionsPage
                         $EventsJob = (Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*NetworkStateChange*"})
                     }
                 }
+                else
+                {
+                    $EventsJob = Invoke-Command -ComputerName $Computer -ScriptBlock {[datetime]$NetworkStateChange =  (Get-WinEvent -FilterHashtable @{LogName = "Microsoft-Windows-NetworkProfile/Operational"; ID = 4004} -MaxEvents 1 -ErrorAction Stop).TimeCreated.AddSeconds("1"); $Events = (Get-WinEvent -FilterHashtable @{LogName = "Security"; ID = 5157; StartTime = $NetworkStateChange} -ErrorAction Stop); $Events} -AsJob
+                }
                 $WaitTime = (Get-Date).AddSeconds(60)
                 do
                 {
@@ -471,7 +587,7 @@ function ScanComputerForBlockedConnectionsPage
                 }
                 while ($EventsJob.State -eq "Running")
                 $Events = $EventsJob| Receive-Job -Keep
-                $ScanComputerForBlockedConnectionsStatusBar.Text = "Sorting $($Events.Count) events."
+                $ScanComputerForBlockedConnectionsStatusBar.Text = "Collecting additional details."
                 $ComputerCimSession = New-CimSession -ComputerName $Computer
                 $RunningSvchostServices = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service" -Filter "PathName LIKE '%svchost.exe%' AND State = 'Running'"
                 $RunningServices = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service" -Filter "State = 'Running'"
@@ -483,6 +599,8 @@ function ScanComputerForBlockedConnectionsPage
                 $ComputerPsSession| Remove-PSSession
                 [NetworkConnection[]]$InboundNetworkConnections = @()
                 [NetworkConnection[]]$OutboundNetworkConnections = @()
+                $EventCount = 0
+                $EventTotal = ($Events.Message).Count
                 foreach ($Event in $Events.Message)
                 {
                     #if (($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text' -like "\device\harddiskvolume*")
@@ -490,6 +608,8 @@ function ScanComputerForBlockedConnectionsPage
                     #        $HardDiskVolume = ((Select-String -InputObject (($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text') -Pattern '\\device\\harddiskvolume') -split("\\"))[2].TrimStart("harddiskvolume")
                     #        $Drive = (Get-Variable -Name HardDiskVolume$HardDiskVolume).Value
                     #    }
+                    $ScanComputerForBlockedConnectionsStatusBar.Text = "Sorting $EventCount of $EventTotal."
+                    $EventCount ++
                     $NetworkConnection = New-Object -TypeName "NetworkConnection"
                     $EventMessage = $Event.Split("`n").TrimStart().TrimEnd()
                     $NetworkConnection.ProcessID = $EventMessage[3].TrimStart("Process ID:").TrimStart()
@@ -543,7 +663,7 @@ function ScanComputerForBlockedConnectionsPage
                     [System.Collections.ArrayList]$NetworkConnections += $NetworkConnection
                 }
                 $ScanComputerForBlockedConnectionsDataGridView.DataSource = $NetworkConnections
-                $ScanComputerForBlockedConnectionsStatusBar.Text = "Please select one or more rules to build."
+                $ScanComputerForBlockedConnectionsStatusBar.Text = "Please select one or more rules to create."
                 $ScanComputerForBlockedConnectionsPanel.Controls.Remove($ScanComputerForBlockedConnectionsTextBox)
                 $ToolPageForm.FormBorderStyle = "Sizable"
                 $ToolPageForm.Location = $ToolSelectionPageForm.Location
@@ -553,7 +673,7 @@ function ScanComputerForBlockedConnectionsPage
                 $ToolPageForm.MaximizeBox = $true
                 $ToolPageForm.MinimizeBox = $true
                 $ToolPageForm.ControlBox = $true
-                $ScanComputerForBlockedConnectionsAcceptButton.Text = "Build"
+                $ScanComputerForBlockedConnectionsAcceptButton.Text = "Create"
                 $ScanComputerForBlockedConnectionsBackButton.Left = $ScanComputerForBlockedConnectionsAcceptButton.Left - $ScanComputerForBlockedConnectionsBackButton.Width - 5
                 $ScanComputerForBlockedConnectionsBottomButtonPanel.Controls.Add($ScanComputerForBlockedConnectionsBackButton)
                 $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridView)
@@ -599,7 +719,10 @@ function ScanComputerForBlockedConnectionsPage
         #{
         #    . PopUpMessage -Message "Tool not available in this build."
         #}
-        $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
+        if ($ScanComputerForBlockedConnectionsTextBox.Parent)
+        {
+            $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
+        }
     })
     $ScanComputerForBlockedConnectionsBackButton = New-Object -TypeName "Windows.Forms.Button" -Property @{Text = "Back"; Anchor = "Right"}
     $ScanComputerForBlockedConnectionsBackButton.Left = $ScanComputerForBlockedConnectionsAcceptButton.Left - $ScanComputerForBlockedConnectionsBackButton.Width - 5
@@ -637,7 +760,7 @@ function ScanComputerForBlockedConnectionsPage
     $EmptyNetworkConnection = New-Object -TypeName "NetworkConnection"
     foreach ($PropertyName in ($EmptyNetworkConnection.PsObject.Properties).name)
     {
-        $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewTextBoxColumn"))
+        $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewTextBoxColumn" -Property @{ReadOnly = $true}))
         $ScanComputerForBlockedConnectionsDataGridView.Columns[$ColumnIndex].Name = $PropertyName
         $ScanComputerForBlockedConnectionsDataGridView.Columns["$PropertyName"].DataPropertyName = $PropertyName
         $ColumnIndex ++
@@ -964,12 +1087,12 @@ function MainThread
     $EditExistingFirewallRulesButton.Text = "Edit existing firewall rules"
     $EditExistingFirewallRulesButton.Add_Click({$ToolSelectionPageForm.Hide(); . EditExistingFirewallRulesPage})
     $EditExistingFirewallRulesToolTip = New-Object -TypeName System.Windows.Forms.ToolTip -Property @{AutoPopDelay = 7500}
-    $EditExistingFirewallRulesToolTip.SetToolTip($EditExistingFirewallRulesButton, "Use this tool to edit existing firewall rules, domain resources can be`nselected and DNS will be used to resolve all IP addresses to be used.`nMultiple rules can be edited at once and saved to a PowerShell`nscript or saved back to the domain.`n50% complete.")
+    $EditExistingFirewallRulesToolTip.SetToolTip($EditExistingFirewallRulesButton, "Use this tool to edit existing firewall rules, domain resources can be`nselected and DNS will be used to resolve all IP addresses to be used.`nMultiple rules can be edited at once and saved to a PowerShell`nscript or saved back to the domain.`n60% complete.")
     $ScanComputerForBlockedConnectionsButton = New-Object -TypeName Windows.Forms.Button -Property @{Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin; Size = $ExportExistingRulesToPowerShellCommandsButton.Size; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $ScanComputerForBlockedConnectionsButton.Text = "Scan computer for blocked connections"
     $ScanComputerForBlockedConnectionsButton.Add_Click({$ToolSelectionPageForm.Hide(); . ScanComputerForBlockedConnectionsPage})
     $ScanComputerForBlockedConnectionsToolTip = New-Object -TypeName System.Windows.Forms.ToolTip
-    $ScanComputerForBlockedConnectionsToolTip.SetToolTip($ScanComputerForBlockedConnectionsButton, "Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`n60% complete.")
+    $ScanComputerForBlockedConnectionsToolTip.SetToolTip($ScanComputerForBlockedConnectionsButton, "Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`n65% complete.")
     $ToolSelectionPageStatusBar = New-Object -TypeName Windows.Forms.StatusBar -Property @{Dock = "Bottom"; Text = "Please select a tool to launch."}
     $ToolSelectionPageBottomButtonPanel.Controls.Add($ToolSelectionPageCancelButton)
     $ToolButtonPanel.Controls.Add($ExportExistingRulesToPowerShellCommandsButton)
