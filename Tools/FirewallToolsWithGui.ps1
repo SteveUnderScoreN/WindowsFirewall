@@ -1,10 +1,13 @@
 <#
+.DESCRIPTION
+    A set of Windows Firewall tools to create PowerShell firewall commands or to import/export rules to/from group policy objects. It contains blocked connection scanning and
+    navigation between Windows Forms via a back button (BackButton). 
 .NOTES
     ExportExistingRulesToPowerShellCommands
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1808.9
+    Build 1808.10
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
@@ -29,7 +32,6 @@ function GroupPoliciesWithExistingFirewallRules
             [string[]]$Script:GroupPoliciesWithExistingFirewallRules += $GroupPolicyObject
         }
     }
-    Write-Progress -Activity "Searching group policy objects" -Completed
     Remove-Variable -Name "GroupPolicyObjectIndex" -Force -ErrorAction SilentlyContinue
     $Script:GroupPoliciesWithExistingFirewallRules = $Script:GroupPoliciesWithExistingFirewallRules| Sort-Object
 }
@@ -87,14 +89,13 @@ function CancelAccept ($Message,$CancelButtonText,$AcceptButtonText) # Need to u
 function UpdateDataSourceForComboBoxCell ($ArrayList,$DataGridView)
 {
     $ComboBoxColumns = ($DataGridView.Columns.Where({$_.CellType.Name -eq "DataGridViewComboBoxCell"})).Name
-    $DataGridViewRowcount = $DataGridView.Rowcount -1
-    if ($ArrayList -ne $null)
+    for ($Row = 0; $Row -lt $DataGridView.Rowcount; $Row++)
     {
         foreach ($ComboBoxColumn in $ComboBoxColumns)
         {
-            $DataGridView.rows[$DataGridViewRowcount].Cells[$ComboBoxColumn].DataSource = $ArrayList[$DataGridViewRowcount].$ComboBoxColumn
-            $DataGridView.rows[$DataGridViewRowcount].Cells[$ComboBoxColumn].Value = $ArrayList[$DataGridViewRowcount].$ComboBoxColumn[0]
-        }
+            $DataGridView.rows[$Row].Cells[$ComboBoxColumn].DataSource = $ArrayList[$Row].$ComboBoxColumn
+            $DataGridView.rows[$Row].Cells[$ComboBoxColumn].Value = $ArrayList[$Row].$ComboBoxColumn[0]
+        } 
     }
 }
 
@@ -267,27 +268,27 @@ function EditExistingFirewallRulesPage
 {   
     class WindowsFirewallRule
     {
-        [string]$PolicyStore
-        [string]$Name
-        [string]$DisplayName
-        [string]$Description
-        [string]$Group 
+        [string] $PolicyStore
+        [string] $Name
+        [string] $DisplayName
+        [string] $Description
+        [string] $Group 
         [ValidateSet("True", "False")]
-        [String]$Enabled
+        [String] $Enabled
         [ValidateSet("Any", "Domain","Private","Public")]
-        [collections.arraylist]$Profile
+        [collections.arraylist] $Profile
         [ValidateSet("Inbound", "Outbound")]
-        [string]$Direction
+        [string] $Direction
         [ValidateSet("Allow", "Deny")]
-        [string]$Action
-        [collections.arraylist]$LocalAddress
-        [collections.arraylist]$RemoteAddress
-        [string]$Protocol
-        [collections.arraylist]$LocalPort
-        [collections.arraylist]$RemotePort
-        [string]$Program
-        [string]$Package
-        [string]$Service
+        [string] $Action
+        [collections.arraylist] $LocalAddress
+        [collections.arraylist] $RemoteAddress
+        [string] $Protocol
+        [collections.arraylist] $LocalPort
+        [collections.arraylist] $RemotePort
+        [string] $Program
+        [string] $Package
+        [string] $Service
     }
     $ToolPageForm = New-Object -TypeName "Windows.Forms.Form" -Property @{FormBorderStyle = "Sizable"; Location = $ToolSelectionPageForm.Location; StartPosition = "Manual"; Size = $ToolSelectionPageForm.Size; MinimumSize = $ToolSelectionPageForm.MinimumSize; WindowState = $ToolSelectionPageForm.WindowState; Text = "Edit existing firewall rules"} 
     $ToolPageForm.Add_Shown(
@@ -346,7 +347,7 @@ function EditExistingFirewallRulesPage
         elseif ($EditExistingFirewallRulesRulesListBox.Parent)
         {
             $GpoSession = Open-NetGPO -PolicyStore ("$DomainName\$($EditExistingFirewallRulesGpoListBox.SelectedItem)")
-            $WindowsFirewallRules = New-Object -TypeName "System.Collections.ArrayList"
+            $Script:WindowsFirewallRules = New-Object -TypeName "System.Collections.ArrayList"
             foreach ($EditExistingFirewallRulesRule in (Get-NetFirewallRule -GPOSession $GpoSession -Name $EditExistingFirewallRulesRulesArray[$EditExistingFirewallRulesRulesListBox.SelectedIndices]))
             {
                 $EditExistingFirewallRulesStatusBar.Text = "Importing rule $($EditExistingFirewallRulesRule.Name)."
@@ -369,16 +370,17 @@ function EditExistingFirewallRulesPage
                     Package = ($EditExistingFirewallRulesRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Package
                     Service = ($EditExistingFirewallRulesRule| Get-NetFirewallServiceFilter -GPOSession $GPOSession).Service
                 }
-                [System.Collections.ArrayList]$WindowsFirewallRules += $WindowsFirewallRule
+                [System.Collections.ArrayList]$Script:WindowsFirewallRules += $WindowsFirewallRule
             }
-            $EditExistingFirewallRulesDataGridView.DataSource = $WindowsFirewallRules
+            $EditExistingFirewallRulesDataGridView.DataSource = $Script:WindowsFirewallRules
             $EditExistingFirewallRulesBackButton.Left = $EditExistingFirewallRulesAcceptButton.Left - $EditExistingFirewallRulesBackButton.Width - 5
-            $EditExistingFirewallRulesStatusBar.Text = "$($WindowsFirewallRules.Count) rules imported."
+            $EditExistingFirewallRulesStatusBar.Text = "$($Script:WindowsFirewallRules.Count) rules imported."
             $EditExistingFirewallRulesPanel.Controls.Add($EditExistingFirewallRulesDataGridView)
             $EditExistingFirewallRulesBottomButtonPanel.Controls.Add($EditExistingFirewallRulesBackButton)
             $EditExistingFirewallRulesPanel.Controls.Remove($EditExistingFirewallRulesRulesListBox)
             $EditExistingFirewallRulesPanel.Controls.Add($EditExistingFirewallRulesDataGridView)
             $EditExistingFirewallRulesDataGridView.Focus()
+            . UpdateDataSourceForComboBoxCell -ArrayList $Script:WindowsFirewallRules -DataGridView $EditExistingFirewallRulesDataGridView
             Remove-Variable -Name "GpoSession" -Force -ErrorAction SilentlyContinue
         }
         elseif ($EditExistingFirewallRulesDataGridView.Parent)
@@ -414,10 +416,9 @@ function EditExistingFirewallRulesPage
     {
         $EditExistingFirewallRulesAcceptButton.PerformClick()
     })
-    $EditExistingFirewallRulesDataGridView = New-Object -TypeName "System.Windows.Forms.DataGridView" -Property @{AutoSize = $true; BackColor = "WhiteSmoke"; Dock = "Fill"; AutoGenerateColumns = $false; ColumnHeadersHeightSizeMode = 'AutoSize'}
+    $EditExistingFirewallRulesDataGridView = New-Object -TypeName "System.Windows.Forms.DataGridView" -Property @{AutoSize = $true; BackGroundColor = "WhiteSmoke"; Dock = "Fill"; AutoGenerateColumns = $false; ColumnHeadersHeightSizeMode = 'AutoSize'}
     $EditExistingFirewallRulesDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn"))
     $EditExistingFirewallRulesDataGridView.Columns[0].AutoSizeMode = "AllCellsExceptHeader"
-    $EditExistingFirewallRulesDataGridView.Add_RowsAdded({. UpdateDataSourceForComboBoxCell -ArrayList $WindowsFirewallRules -DataGridView $EditExistingFirewallRulesDataGridView})
     $ColumnIndex = 1
     $EmptyWindowsFirewallRule = New-Object -TypeName "WindowsFirewallRule"
     foreach ($PropertyName in ($EmptyWindowsFirewallRule.PsObject.Properties).name)
@@ -433,7 +434,7 @@ function EditExistingFirewallRulesPage
             }
             else
             {
-                $EditExistingFirewallRulesDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewComboBoxColumn" -Property @{ReadOnly = $true}))
+                $EditExistingFirewallRulesDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewComboBoxColumn" -Property @{ReadOnly = $false}))
                 $EditExistingFirewallRulesDataGridView.Columns[$ColumnIndex].Name = $PropertyName
                 $ColumnIndex ++
             }
@@ -460,6 +461,7 @@ function ScanComputerForBlockedConnectionsPage
         [ipaddress] $DestAddress
         [int] $DestPort
         [string] $Protocol
+        [collections.arraylist] $Service
         [string] $Notes
     }
     $ToolPageForm = New-Object -TypeName "Windows.Forms.Form" -Property @{FormBorderStyle = "FixedDialog"; Location = @{X = ($ToolSelectionPageForm.Location.X + ($ToolSelectionPageForm.width/2)) - 125; Y = ($ToolSelectionPageForm.Location.Y + ($ToolSelectionPageForm.Height/2)) - 55}; StartPosition = "Manual"; Width = 250; Height = 110; Text = "Scan computer for blocked connections"; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
@@ -488,8 +490,8 @@ function ScanComputerForBlockedConnectionsPage
                     $ScanComputerForBlockedConnectionsStatusBar.Text =  "Resolving IP addresses."
                     [ipaddress[]]$IpAddresses = (Resolve-DnsName $Computer -ErrorAction Stop).IpAddress
                 }
-                Remove-Variable -Name "JobNumber" -Force -ErrorAction SilentlyContinue
-                Remove-Variable -Name "NetworkConnectivityJobs" -Force -ErrorAction SilentlyContinue
+                #Remove-Variable -Name "JobNumber" -Force -ErrorAction SilentlyContinue
+                #Remove-Variable -Name "NetworkConnectivityJobs" -Force -ErrorAction SilentlyContinue
                 foreach ($IpAddress in $IpAddresses) # Because Test-NetConnection does the IP addresses one after another, uses Ping and doesn't provide feedback during the test I've opted to use asynchronous TCP jobs and monitor for the state of those. This also allows me to abandon the jobs if the tests are taking too long.
                 {
                     $JobNumber += 1
@@ -505,7 +507,7 @@ function ScanComputerForBlockedConnectionsPage
                     [array]$NetworkConnectivityJobs += Get-Variable -Name ("NetworkConnectivityJobs" + "$JobNumber")
                 }
                 $WaitTime = (Get-Date).AddSeconds(10)
-                Remove-Variable -Name "NetworkConnectivityJobRanToCompletion" -Force -ErrorAction SilentlyContinue
+                #Remove-Variable -Name "NetworkConnectivityJobRanToCompletion" -Force -ErrorAction SilentlyContinue
                 $ScanComputerForBlockedConnectionsStatusBar.Text = "Trying $(($NetworkConnectivityJobs).Count) IP address/es."
                 do
                 {
@@ -528,7 +530,7 @@ function ScanComputerForBlockedConnectionsPage
                             {
                             if ((. CancelAccept -Message "All network connectivity jobs have failed,`r`ndo you want to display diagnostic information?" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "OK")
                             {
-                                Remove-Variable -Name "DiagnosticResults" -Force -ErrorAction SilentlyContinue
+                                #Remove-Variable -Name "DiagnosticResults" -Force -ErrorAction SilentlyContinue
                                 foreach ($NetworkConnectivityJob in $NetworkConnectivityJobs)
                                 {
                                     [array]$DiagnosticResults += $NetworkConnectivityJob.Value.Exception.InnerException
@@ -549,21 +551,22 @@ function ScanComputerForBlockedConnectionsPage
                     }
                 }
                 Until ($NetworkConnectivityJobRanToCompletion -eq $true)
-                if ((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*NetworkStateChange*"}))
+                [datetime]$NetworkStateChange =  (Get-WinEvent -ComputerName $Computer -FilterHashtable @{LogName = "Microsoft-Windows-NetworkProfile/Operational"; ID = 4004} -MaxEvents 1 -ErrorAction Stop).TimeCreated.AddSeconds("1")
+                if ((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"}))
                 {
-                    if ((. CancelAccept -Message "A $((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*NetworkStateChange*"}).State) job has been found for this computer.`r`nDo you wants to connect to that job or start a new scan?" -CancelButtonText "New" -AcceptButtonText "Connect") -eq "Cancel")
+                    if ((. CancelAccept -Message "A $((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"}).State) job has been found for this computer.`r`nDo you wants to connect to that job or start a new scan?" -CancelButtonText "New" -AcceptButtonText "Connect") -eq "Cancel")
                     {
-                        (Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*NetworkStateChange*"})| Remove-Job
-                        $EventsJob = Invoke-Command -ComputerName $Computer -ScriptBlock {[datetime]$NetworkStateChange =  (Get-WinEvent -FilterHashtable @{LogName = "Microsoft-Windows-NetworkProfile/Operational"; ID = 4004} -MaxEvents 1 -ErrorAction Stop).TimeCreated.AddSeconds("1"); $Events = (Get-WinEvent -FilterHashtable @{LogName = "Security"; ID = 5157; StartTime = $NetworkStateChange} -ErrorAction Stop); $Events} -AsJob
+                        (Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"})| Remove-Job
+                        $EventsJob = Invoke-Command -ComputerName $Computer -ScriptBlock {$Events = (Get-WinEvent -FilterHashtable @{LogName = "Security"; ID = 5157; StartTime = $args[0]} -ErrorAction Stop); $Events} -AsJob -ArgumentList $NetworkStateChange
                     }
                     else
                     {
-                        $EventsJob = (Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*NetworkStateChange*"})
+                        $EventsJob = (Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"})
                     }
                 }
                 else
                 {
-                    $EventsJob = Invoke-Command -ComputerName $Computer -ScriptBlock {[datetime]$NetworkStateChange =  (Get-WinEvent -FilterHashtable @{LogName = "Microsoft-Windows-NetworkProfile/Operational"; ID = 4004} -MaxEvents 1 -ErrorAction Stop).TimeCreated.AddSeconds("1"); $Events = (Get-WinEvent -FilterHashtable @{LogName = "Security"; ID = 5157; StartTime = $NetworkStateChange} -ErrorAction Stop); $Events} -AsJob
+                    $EventsJob = Invoke-Command -ComputerName $Computer -ScriptBlock {$Events = (Get-WinEvent -FilterHashtable @{LogName = "Security"; ID = 5157; StartTime = $args[0]} -ErrorAction Stop); $Events} -AsJob -ArgumentList $NetworkStateChange
                 }
                 $WaitTime = (Get-Date).AddSeconds(60)
                 do
@@ -586,10 +589,21 @@ function ScanComputerForBlockedConnectionsPage
                     start-sleep -Milliseconds 500
                 }
                 while ($EventsJob.State -eq "Running")
-                $Events = $EventsJob| Receive-Job -Keep
+                $Events = $EventsJob| Receive-Job -Keep -ErrorAction SilentlyContinue
+                if ($EventsJob.State -eq "Failed")
+                {
+                    if ($error[0].Exception.Message -eq "No events were found that match the specified selection criteria.")
+                    {
+                        throw "No events were found that match the specified selection criteria."
+                    }
+                    else
+                    {
+                        throw
+                    }
+                }
                 $ScanComputerForBlockedConnectionsStatusBar.Text = "Collecting additional details."
                 $ComputerCimSession = New-CimSession -ComputerName $Computer
-                $RunningSvchostServices = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service" -Filter "PathName LIKE '%svchost.exe%' AND State = 'Running'"
+                #$RunningSvchostServices = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service" -Filter "PathName LIKE '%svchost.exe%' AND State = 'Running'"
                 $RunningServices = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service" -Filter "State = 'Running'"
                 $ComputerCimSession| Remove-CimSession
                 $ComputerPsSession = New-PSSession -ComputerName $Computer
@@ -599,7 +613,7 @@ function ScanComputerForBlockedConnectionsPage
                 $ComputerPsSession| Remove-PSSession
                 [NetworkConnection[]]$InboundNetworkConnections = @()
                 [NetworkConnection[]]$OutboundNetworkConnections = @()
-                $EventCount = 0
+                $EventCount = 1
                 $EventTotal = ($Events.Message).Count
                 foreach ($Event in $Events.Message)
                 {
@@ -620,6 +634,11 @@ function ScanComputerForBlockedConnectionsPage
                     $NetworkConnection.DestAddress = $EventMessage[10].TrimStart("Destination Address:").TrimStart()
                     $NetworkConnection.DestPort = $EventMessage[11].TrimStart("Destination Port:").TrimStart()
                     $NetworkConnection.Protocol = $EventMessage[12].TrimStart("Protocol:").TrimStart() -replace "^1$","ICMPv4" -replace "^6$","TCP" -replace "^17$","UDP" -replace "^58$","ICMPv6"
+                    $NetworkConnection.Service = @(($RunningServices.Where({$_.ProcessId -eq $NetworkConnection.ProcessID})).Name)
+                    if ($NetworkConnection.Service)
+                    {
+                        $NetworkConnection.Notes += "Service:$(($RunningServices.Where({$_.ProcessId -eq $NetworkConnection.ProcessID})).DisplayName)"
+                    }
                     if ($NetworkConnection.Direction -eq "Inbound")
                     {
                         $InboundNetworkConnections += $NetworkConnection
@@ -629,40 +648,13 @@ function ScanComputerForBlockedConnectionsPage
                         $OutboundNetworkConnections += $NetworkConnection
                     }
                 }
-                $FilteredOutboundNetworkConnections = $OutboundNetworkConnections| Select-Object -Property * -ExcludeProperty "Direction","SourcePort" -Unique
-                $FilteredInboundNetworkConnections = $InboundNetworkConnections| Select-Object -Property * -ExcludeProperty "Direction","DestPort" -Unique
-                $NetworkConnections = New-Object -TypeName "System.Collections.ArrayList"
-                foreach ($FilteredOutboundNetworkConnection in $FilteredOutboundNetworkConnections)
-                {
-                    $ScanComputerForBlockedConnectionsStatusBar.Text = "Importing filtered outbound rules."
-                    $NetworkConnection = New-Object -TypeName "NetworkConnection" -Property @{
-                        ProcessId = $FilteredOutboundNetworkConnection.ProcessId
-                        Application = $FilteredOutboundNetworkConnection.Application
-                        Direction = "Outbound"
-                        SourceAddress = $FilteredOutboundNetworkConnection.SourceAddress
-                        SourcePort = $FilteredOutboundNetworkConnection.SourcePort
-                        DestAddress = $FilteredOutboundNetworkConnection.DestAddress
-                        DestPort = $FilteredOutboundNetworkConnection.DestPort
-                        Protocol = $FilteredOutboundNetworkConnection.Protocol
-                    }
-                    [System.Collections.ArrayList]$NetworkConnections += $NetworkConnection
-                }
-                foreach ($FilteredInboundNetworkConnection in $FilteredInboundNetworkConnections)
-                {
-                    $ScanComputerForBlockedConnectionsStatusBar.Text = "Importing filtered inbound rules."
-                    $NetworkConnection = New-Object -TypeName "NetworkConnection" -Property @{
-                        ProcessId = $FilteredInboundNetworkConnection.ProcessId
-                        Application = $FilteredInboundNetworkConnection.Application
-                        Direction = "Inbound"
-                        SourceAddress = $FilteredInboundNetworkConnection.SourceAddress
-                        SourcePort = $FilteredInboundNetworkConnection.SourcePort
-                        DestAddress = $FilteredInboundNetworkConnection.DestAddress
-                        DestPort = $FilteredInboundNetworkConnection.DestPort
-                        Protocol = $FilteredInboundNetworkConnection.Protocol
-                    }
-                    [System.Collections.ArrayList]$NetworkConnections += $NetworkConnection
-                }
+                [NetworkConnection[]]$FilteredOutboundNetworkConnections = $OutboundNetworkConnections| Select-Object -Property * -ExcludeProperty "SourcePort" -Unique
+                [NetworkConnection[]]$FilteredInboundNetworkConnections = $InboundNetworkConnections| Select-Object -Property * -ExcludeProperty "DestPort" -Unique
+                [System.Collections.ArrayList]$NetworkConnections += $FilteredOutboundNetworkConnections
+                [System.Collections.ArrayList]$NetworkConnections += $FilteredInboundNetworkConnections
                 $ScanComputerForBlockedConnectionsDataGridView.DataSource = $NetworkConnections
+                $ScanComputerForBlockedConnectionsDataGridView.Columns["ProcessId"].Visible = $false
+                $ScanComputerForBlockedConnectionsDataGridView.Columns["SourcePort"].Visible = $false
                 $ScanComputerForBlockedConnectionsStatusBar.Text = "Please select one or more rules to create."
                 $ScanComputerForBlockedConnectionsPanel.Controls.Remove($ScanComputerForBlockedConnectionsTextBox)
                 $ToolPageForm.FormBorderStyle = "Sizable"
@@ -678,6 +670,7 @@ function ScanComputerForBlockedConnectionsPage
                 $ScanComputerForBlockedConnectionsBottomButtonPanel.Controls.Add($ScanComputerForBlockedConnectionsBackButton)
                 $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridView)
                 $ScanComputerForBlockedConnectionsDataGridView.Focus()
+                . UpdateDataSourceForComboBoxCell -ArrayList $NetworkConnections -DataGridView $ScanComputerForBlockedConnectionsDataGridView
             }
             catch [System.Management.Automation.RuntimeException]
             {
@@ -697,7 +690,7 @@ function ScanComputerForBlockedConnectionsPage
                 }
                 elseif ($error[0].Exception.Message -eq "No events were found that match the specified selection criteria.")
                 {
-                    . PopUpMessage -Message "No matching events were found since the last network`r`nstate change on $([DateTime]::Parse($NetworkStateChange)), event ID 4004 in`r`nlog 'Microsoft-Windows-NetworkProfile/Operational'"
+                    . PopUpMessage -Message "No matching events were found since the last network`r`nstate change on $(($NetworkStateChange.AddSeconds(-1)).ToString()), event ID 4004 in`r`nlog 'Microsoft-Windows-NetworkProfile/Operational'"
                 }
                 else
                 {
@@ -752,18 +745,26 @@ function ScanComputerForBlockedConnectionsPage
     })
     $ToolPageForm.CancelButton = $ScanComputerForBlockedConnectionsCancelButton
     $ToolPageForm.AcceptButton = $ScanComputerForBlockedConnectionsAcceptButton
-    $ScanComputerForBlockedConnectionsDataGridView = New-Object -TypeName "System.Windows.Forms.DataGridView" -Property @{AutoSize = $true; BackColor = "WhiteSmoke"; Dock = "Fill"; AutoGenerateColumns = $false; ColumnHeadersHeightSizeMode = 'AutoSize'}
+    $ScanComputerForBlockedConnectionsDataGridView = New-Object -TypeName "System.Windows.Forms.DataGridView" -Property @{AutoSize = $true; BackGroundColor = "WhiteSmoke"; Dock = "Fill"; AutoGenerateColumns = $false; ColumnHeadersHeightSizeMode = 'AutoSize'}
     $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn"))
     $ScanComputerForBlockedConnectionsDataGridView.Columns[0].AutoSizeMode = "AllCellsExceptHeader"
-    $ScanComputerForBlockedConnectionsDataGridView.Add_RowsAdded({. UpdateDataSourceForComboBoxCell -ArrayList $NetworkConnections -DataGridView $ScanComputerForBlockedConnectionsDataGridView})
     $ColumnIndex = 1
     $EmptyNetworkConnection = New-Object -TypeName "NetworkConnection"
     foreach ($PropertyName in ($EmptyNetworkConnection.PsObject.Properties).name)
     {
-        $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewTextBoxColumn" -Property @{ReadOnly = $true}))
-        $ScanComputerForBlockedConnectionsDataGridView.Columns[$ColumnIndex].Name = $PropertyName
-        $ScanComputerForBlockedConnectionsDataGridView.Columns["$PropertyName"].DataPropertyName = $PropertyName
-        $ColumnIndex ++
+            if ($PropertyName -in "ProcessId","Application","Direction","SourceAddress","SourcePort","DestAddress","DestPort","Protocol","Notes")
+            {
+                $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewTextBoxColumn" -Property @{ReadOnly = $true}))
+                $ScanComputerForBlockedConnectionsDataGridView.Columns[$ColumnIndex].Name = $PropertyName
+                $ScanComputerForBlockedConnectionsDataGridView.Columns["$PropertyName"].DataPropertyName = $PropertyName
+                $ColumnIndex ++
+            }
+            else
+            {
+                $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewComboBoxColumn" -Property @{ReadOnly = $true}))
+                $ScanComputerForBlockedConnectionsDataGridView.Columns[$ColumnIndex].Name = $PropertyName
+                $ColumnIndex ++
+            }
     }
     $ScanComputerForBlockedConnectionsTextBox = New-Object -TypeName Windows.Forms.TextBox -Property @{width = $ToolPageForm.Width - 36; Location = @{X = 10; Y= 5}; Text = "LocalHost"}
     $ScanComputerForBlockedConnectionsStatusBar = New-Object -TypeName "Windows.Forms.StatusBar" -Property @{Dock = "Bottom"; Text = "Enter a computer name or IP address to scan."}
@@ -1040,14 +1041,14 @@ function MainThread
         }
     })
     $SquareRootOfFormSize = [math]::Sqrt($ToolSelectionPageForm.Width * $ToolSelectionPageForm.Height)
-    [int]$FontSize = $SquareRootOfFormSize/35
+    [int]$FontSize = $SquareRootOfFormSize/40
     [int]$Margin = $SquareRootOfFormSize/20
     [int]$Padding = $SquareRootOfFormSize/125
-    $ToolButtonPanel = New-Object -TypeName Windows.Forms.FlowLayoutPanel -Property @{BackColor = "WhiteSmoke"; AutoScroll = $true;Anchor = "Top, Bottom, Left, Right"; Width = $ToolSelectionPageForm.Width - 16; Height = $ToolSelectionPageForm.Height - 82}
+    $ToolButtonPanel = New-Object -TypeName Windows.Forms.FlowLayoutPanel -Property @{BackColor = "WhiteSmoke"; AutoScroll = $true;Anchor = "Top, Bottom, Left, Right"; Width = $ToolSelectionPageForm.Width - 16; Height = $ToolSelectionPageForm.Height - 82; FlowDirection = "LeftToRight"}
     $ToolButtonPanel.Add_SizeChanged(
     {
         $SquareRootOfFormSize = [math]::Sqrt($ToolSelectionPageForm.Width * $ToolSelectionPageForm.Height)
-        [int]$FontSize = $SquareRootOfFormSize/30
+        [int]$FontSize = $SquareRootOfFormSize/40
         [int]$Margin = $SquareRootOfFormSize/20
         [int]$Padding = $SquareRootOfFormSize/125
         $BoldButtonFont = New-Object -TypeName System.Drawing.Font("Microsoft Sans Serif",($FontSize),[System.Drawing.FontStyle]::Bold)
