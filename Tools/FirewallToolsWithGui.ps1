@@ -7,13 +7,45 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1808.10
+    Build 1808.11
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
 {
     Write-Warning "This script invokes a GUI and cannot be run over a remot session or on PowerShell Core editions)"
     break
+}
+
+function DefaultDomainResources
+{
+    [System.Collections.ArrayList]$Script:Resources = "DomainControllers","ProxyServers","DnsServers","CrlServers","Wpad_PacFileServers","TierXManagementServers","SqlServers","WebServers","FileServers","KeyManagementServers","BackupServers","ClusteredNodesAndManagementAddresses","ExternalVpnEndpoints","DirectAccessServers","TrustedDhcpSubnets","ServerRoleAdministrationServers"
+    foreach ($Resource in $Resources)
+    {
+        New-Variable -Name $Resource -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script"
+    }
+    New-Variable -Name "ProxyServerPorts" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script"
+    # Version 0.7.0 domain resources
+    [System.Collections.ArrayList]$Script:DomainControllers += "127.0.0.1","SERVERNAME"
+    [System.Collections.ArrayList]$Script:ProxyServerPorts += "8080"
+    [System.Collections.ArrayList]$Script:ProxyServers += "LocalSubnet","Intranet"
+    [System.Collections.ArrayList]$Script:DnsServers += $Script:DomainControllers # Specify these if you do not have DNS on each domain controller or you have additional DNS servers
+    [System.Collections.ArrayList]$Script:CrlServers += "LocalSubnet","Intranet"
+    [System.Collections.ArrayList]$Script:Wpad_PacFileServers += "LocalSubnet","Intranet"
+    [System.Collections.ArrayList]$Script:TierXManagementServers += "LocalSubnet","Intranet" # These are used in tier X firewall baselines to define which computers can manage the device at a particular tier
+    [System.Collections.ArrayList]$Script:SqlServers += "127.0.0.4"
+    [System.Collections.ArrayList]$Script:WebServers += "LocalSubnet","Intranet"
+    [System.Collections.ArrayList]$Script:FileServers += "LocalSubnet","Intranet"
+    [System.Collections.ArrayList]$Script:KeyManagementServers += "LocalSubnet","Intranet"
+    [System.Collections.ArrayList]$Script:BackupServers += "127.0.0.1"
+    [System.Collections.ArrayList]$Script:ClusteredNodesAndManagementAddresses += "LocalSubnet","Intranet"
+    [System.Collections.ArrayList]$Script:ExternalVpnEndpoints += "127.0.0.2 -  127.0.0.3" # This is the externally resolvable IPSec hostname or address
+    [System.Collections.ArrayList]$Script:DirectAccessServers += "127.0.0.128/25" # This is the externally resolvable hostname or address of the DirectAccess IPHTTPS endpoint
+    [System.Collections.ArrayList]$Script:TrustedDhcpSubnets += "Any" # This is client enterprise subnets and includes subnets issued by the VPN server, "Predefined set of computers" cannot be used here
+    # END of version 0.7.0 domain resources
+    # Version 0.8.0 domain resources
+    [System.Collections.ArrayList]$Script:ServerRoleAdministrationServers += "LocalSubnet","Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
+    # END of version 0.8.0 domain resources
+    [System.Collections.ObjectModel.ObservableCollection[Object]]$Script:ResourcesAndProxyPorts = $Resources + "ProxyServerPorts"
 }
 
 Add-Type -Assembly "System.Windows.Forms"
@@ -101,27 +133,6 @@ function UpdateDataSourceForComboBoxCell ($ArrayList,$DataGridView)
 
 function DomainResources
 {
-    # Version 0.7.0 domain resources
-    $DomainControllers = "127.0.0.1","SERVERNAME"
-    $ProxyServerPorts = "8080"
-    $ProxyServers = "LocalSubnet","Intranet"
-    $DnsServers = $DomainControllers # Specify these if you do not have DNS on each domain controller or you have additional DNS servers
-    $CrlServers = "LocalSubnet","Intranet"
-    $Wpad_PacFileServers = "LocalSubnet","Intranet"
-    $TierXManagementServers = "LocalSubnet","Intranet" # These are used in tier X firewall baselines to define which computers can manage the device at a particular tier
-    $SqlServers = "127.0.0.4"
-    $WebServers = "LocalSubnet","Intranet"
-    $FileServers = "LocalSubnet","Intranet"
-    $KeyManagementServers = "LocalSubnet","Intranet"
-    $BackupServers = "127.0.0.1"
-    $ClusteredNodesAndManagementAddresses = "LocalSubnet","Intranet"
-    $ExternalVpnEndpoints = "127.0.0.2 -  127.0.0.3" # This is the externally resolvable IPSec hostname or address
-    $DirectAccessServers = "127.0.0.128/25" # This is the externally resolvable hostname or address of the DirectAccess IPHTTPS endpoint
-    $TrustedDhcpSubnets = "Any" # This is client enterprise subnets and includes subnets issued by the VPN server, "Predefined set of computers" cannot be used here
-    # END of version 0.7.0 domain resources
-    # Version 0.8.0 domain resources
-    $ServerRoleAdministrationServers = "LocalSubnet","Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
-    # END of version 0.8.0 domain resources
     $Resources = "DomainControllers","ProxyServers","DnsServers","CrlServers","Wpad_PacFileServers","TierXManagementServers","SqlServers","WebServers","FileServers","KeyManagementServers","BackupServers","ClusteredNodesAndManagementAddresses","ExternalVpnEndpoints","DirectAccessServers","TrustedDhcpSubnets","ServerRoleAdministrationServers"
     foreach ($Resource in $Resources)
     {
@@ -239,7 +250,7 @@ function FindAllPoliciesWithFirewallRulesPage
     $ToolPageForm.Add_SizeChanged({$ToolSelectionPageForm.WindowState = $ToolPageForm.WindowState})
     $FindAllPoliciesWithFirewallRulesBottomButtonPanel = New-Object -TypeName Windows.Forms.Panel -Property @{Width = $ToolPageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $FindAllPoliciesWithFirewallRulesSaveFileDialog =  New-Object -TypeName System.Windows.Forms.SaveFileDialog
-    $FindAllPoliciesWithFirewallRulesSaveFileDialog.Filter = "txt files (*.txt)|*.txt|All files (*.*)|*.*"
+    $FindAllPoliciesWithFirewallRulesSaveFileDialog.Filter = "Text Files (*.txt)|*.txt|All files (*.*)|*.*"
     $FindAllPoliciesWithFirewallRulesSaveAsButton = New-Object -TypeName Windows.Forms.Button -Property @{Text = "Save As"; Anchor = "Right"} 
     $FindAllPoliciesWithFirewallRulesSaveAsButton.Add_Click(
     {
@@ -261,7 +272,117 @@ function FindAllPoliciesWithFirewallRulesPage
 
 function UpdateDomainResourcesPage
 {
-    . PopUpMessage -Message "Tool not available in this build."
+    if ($null -eq $DomainControllers)
+    {
+        DefaultDomainResources
+    }
+    $ToolPageForm = New-Object -TypeName "Windows.Forms.Form" -Property @{FormBorderStyle = "Sizable"; Location = $ToolSelectionPageForm.Location; StartPosition = "Manual"; Size = $ToolSelectionPageForm.Size; MinimumSize = $ToolSelectionPageForm.MinimumSize; WindowState = $ToolSelectionPageForm.WindowState; Text = "Edit existing firewall rules"} 
+    $ToolPageForm.Add_SizeChanged({$ToolSelectionPageForm.WindowState = $ToolPageForm.WindowState})
+    $ToolPageForm.Add_Shown({$UpdateDomainResourcesResourcesListBox.SetSelected(0, $true)})
+    $UpdateDomainResourcesBottomButtonPanel = New-Object -TypeName "Windows.Forms.Panel" -Property @{Width = $ToolPageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
+    $DefaultPageCancelButton.Left = $UpdateDomainResourcesBottomButtonPanel.Width - $DefaultPageCancelButton.Width - 16
+    $UpdateDomainResourcesSaveFileDialog =  New-Object -TypeName System.Windows.Forms.SaveFileDialog
+    $UpdateDomainResourcesSaveFileDialog.Filter = "XML Files (*.xml)|*.xml|All files (*.*)|*.*"
+    $UpdateDomainResourcesExportButton = New-Object -TypeName "Windows.Forms.Button" -Property @{Text = "Export"; Anchor = "Right"} 
+    $UpdateDomainResourcesExportButton.Left = $DefaultPageCancelButton.Left - $UpdateDomainResourcesExportButton.Width - 5
+    $UpdateDomainResourcesExportButton.Add_Click(
+    {
+        if ($UpdateDomainResourcesSaveFileDialog.ShowDialog() -eq "OK")
+        {
+            $ResourcesArray = @()
+            foreach ($Resource in $ResourcesAndProxyPorts)
+            {
+                $ResourcesArray += Get-Variable -Name $Resource -Scope "Script"
+
+            }
+            Export-Clixml -InputObject $ResourcesArray -Path $UpdateDomainResourcesSaveFileDialog.FileName -Force
+        }
+    })
+    $UpdateDomainResourcesOpenFileDialog =  New-Object -TypeName System.Windows.Forms.OpenFileDialog
+    $UpdateDomainResourcesOpenFileDialog.Filter = "XML Files (*.xml)|*.xml|All files (*.*)|*.*"
+    $UpdateDomainResourcesImportButton = New-Object -TypeName "Windows.Forms.Button" -Property @{Text = "Import"; Anchor = "Right"} 
+    $UpdateDomainResourcesImportButton.Left = $UpdateDomainResourcesExportButton.Left - $UpdateDomainResourcesImportButton.Width - 5
+    $UpdateDomainResourcesImportButton.Add_Click(
+    {
+        if ($UpdateDomainResourcesOpenFileDialog.ShowDialog() -eq "OK")
+        {
+            $ResourcesArray = Import-Clixml -Path $UpdateDomainResourcesOpenFileDialog.FileName
+            foreach ($Resource in $ResourcesArray)
+            {
+                New-Variable -Name $Resource.Name -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script" -Force
+                Set-Variable -Name $Resource.Name -Value $Resource.Value -Scope "Script"
+            }
+            $UpdateDomainResourcesResourcesListBox.SetSelected(0, $true)
+        }
+    })
+    $ToolPageForm.CancelButton = $DefaultPageCancelButton
+    $UpdateDomainResourcesResourcesListBox = New-Object -TypeName "System.Windows.Forms.ListBox" -Property @{Anchor = "Top,Left"; Location = @{X = 13; Y = 13}; BorderStyle = "Fixed3D"; Size = @{Width = 212; Height = 250}}
+    $UpdateDomainResourcesResourcesListBox.Add_SelectedValueChanged(
+    {
+        $UpdateDomainResourcesValuesListBox.DataSource = (Get-Variable -Name $UpdateDomainResourcesResourcesListBox.SelectedItem).Value
+    })
+    $UpdateDomainResourcesResourcesListBox.DataSource = $Script:ResourcesAndProxyPorts
+    $UpdateDomainResourcesResourcesListBox.Sorted = $true
+    $UpdateDomainResourcesValuesListBox = New-Object -TypeName "System.Windows.Forms.ListBox" -Property @{Anchor = "Top,Left,Right"; Location = @{X = ($UpdateDomainResourcesResourcesListBox.Location.X + $UpdateDomainResourcesResourcesListBox.Width + 13); Y = 13}; BorderStyle = "Fixed3D"; Size = @{Width = ($ToolPageForm.Width - 269); Height = $UpdateDomainResourcesResourcesListBox.Height - 35}; SelectionMode = "MultiExtended"}
+    $UpdateDomainResourcesValuesListBox.Add_Click(
+    {
+        Write-Host "What about a right click and remove?"
+    })
+    $UpdateDomainResourcesRemoveButton = New-Object -TypeName "Windows.Forms.Button" -Property @{Text = "Remove"; Anchor = "Top,Right"; Location = @{X = $ToolPageForm.Width - $UpdateDomainResourcesRemoveButton.Width - 105; Y = $UpdateDomainResourcesValuesListBox.Location.Y + $UpdateDomainResourcesValuesListBox.Height + 5}}
+    $UpdateDomainResourcesRemoveButton.Add_Click(
+    {
+        foreach ($SelectedItem in $UpdateDomainResourcesValuesListBox.SelectedItems)
+        {
+            $UpdateDomainResourcesValuesListBox.DataSource.Remove($SelectedItem)
+        }
+        $UpdateDomainResourcesValuesListBox.DataSource = $null
+        $UpdateDomainResourcesValuesListBox.DataSource = (Get-Variable -Name $UpdateDomainResourcesResourcesListBox.SelectedItem).Value
+    })
+    $UpdateDomainResourcesAddButton = New-Object -TypeName "Windows.Forms.Button" -Property @{Text = "Add"; Anchor = "Top,Right"; Location = @{Y = $UpdateDomainResourcesRemoveButton.Location.Y}}
+    $UpdateDomainResourcesAddButton.Left = $UpdateDomainResourcesRemoveButton.Left - $UpdateDomainResourcesAddButton.Width - 5
+    $UpdateDomainResourcesAddButton.Add_Click(
+    {
+        $AddDomainResourceForm = New-Object -TypeName "Windows.Forms.Form" -Property @{FormBorderStyle = "FixedDialog"; Location = @{X = ($ToolPageForm.Location.X + ($ToolPageForm.width/2)) - 125; Y = ($ToolPageForm.Location.Y + ($ToolPageForm.Height/2)) - 55}; StartPosition = "Manual"; Width = 250; Height = 110; Text = "Add domain resource"; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
+        $AddDomainResourceBottomButtonPanel = New-Object -TypeName "Windows.Forms.Panel" -Property @{Width = $AddDomainResourceForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
+        $AddDomainResourceCancelButton = New-Object -TypeName "Windows.Forms.Button" -Property @{Text = "Exit"; Anchor = "Right"}
+        $AddDomainResourceCancelButton.Left = $AddDomainResourceBottomButtonPanel.Width - $AddDomainResourceCancelButton.Width - 5
+        $AddDomainResourceAcceptButton = New-Object -TypeName "Windows.Forms.Button" -Property @{Text = "Add"; Anchor = "Right"} 
+        $AddDomainResourceAcceptButton.Left = $AddDomainResourceCancelButton.Left - $AddDomainResourceAcceptButton.Width - 5
+        $AddDomainResourceAcceptButton.Add_Click(
+        {
+            foreach ($IpAddress in (Resolve-DnsName $AddDomainResourceTextBox.Text).IPAddress)
+            {
+                $UpdateDomainResourcesValuesListBox.DataSource.Add($IpAddress)
+            }
+            $UpdateDomainResourcesValuesListBox.DataSource = $null
+            $UpdateDomainResourcesValuesListBox.DataSource = (Get-Variable -Name $UpdateDomainResourcesResourcesListBox.SelectedItem).Value
+        })
+        $AddDomainResourceForm.CancelButton = $AddDomainResourceCancelButton
+        $AddDomainResourceForm.AcceptButton = $AddDomainResourceAcceptButton
+        $AddDomainResourceTextBox = New-Object -TypeName Windows.Forms.TextBox -Property @{width = $AddDomainResourceForm.Width - 36; Location = @{X = 10; Y= 5}}
+        $AddDomainResourceStatusBar = New-Object -TypeName "Windows.Forms.StatusBar" -Property @{Dock = "Bottom"; Text = "Enter a computer name or IP address to add."}
+        $AddDomainResourcePanel = New-Object -TypeName "Windows.Forms.Panel" -Property @{AutoScroll = $true;Anchor = "Top, Bottom, Left, Right"; Width = $AddDomainResourceForm.Width - 16; Height = $AddDomainResourceForm.Height - 82}
+        $AddDomainResourcePanel.Controls.Add($AddDomainResourceTextBox)
+        $AddDomainResourceBottomButtonPanel.Controls.Add($AddDomainResourceCancelButton)
+        $AddDomainResourceBottomButtonPanel.Controls.Add($AddDomainResourceAcceptButton)
+        $AddDomainResourceForm.Controls.Add($AddDomainResourcePanel) # Added to the form first to set focus on this panel
+        $AddDomainResourceForm.Controls.Add($AddDomainResourceBottomButtonPanel)
+        $AddDomainResourceForm.Controls.Add($AddDomainResourceStatusBar)
+        [void]$AddDomainResourceForm.ShowDialog()
+    })
+    $UpdateDomainResourcesStatusBar = New-Object -TypeName "Windows.Forms.StatusBar" -Property @{Dock = "Bottom"; Text = "Please select a resource to update."} 
+    $UpdateDomainResourcesPanel = New-Object -TypeName "Windows.Forms.Panel" -Property @{AutoScroll = $true;Anchor = "Top, Bottom, Left, Right"; Width = $ToolPageForm.Width - 16; Height = $ToolPageForm.Height - 82}
+    $UpdateDomainResourcesBottomButtonPanel.Controls.Add($DefaultPageCancelButton)
+    $UpdateDomainResourcesBottomButtonPanel.Controls.Add($UpdateDomainResourcesExportButton)
+    $UpdateDomainResourcesBottomButtonPanel.Controls.Add($UpdateDomainResourcesImportButton)
+    $UpdateDomainResourcesPanel.Controls.Add($UpdateDomainResourcesResourcesListBox)
+    $UpdateDomainResourcesPanel.Controls.Add($UpdateDomainResourcesValuesListBox)
+    $UpdateDomainResourcesPanel.Controls.Add($UpdateDomainResourcesRemoveButton)
+    $UpdateDomainResourcesPanel.Controls.Add($UpdateDomainResourcesAddButton)
+    $ToolPageForm.Controls.Add($UpdateDomainResourcesPanel) # Added to the form first to set focus on this panel
+    $ToolPageForm.Controls.Add($UpdateDomainResourcesBottomButtonPanel)
+    $ToolPageForm.Controls.Add($UpdateDomainResourcesStatusBar) # Added to the form last to ensure the status bar gets put at the bottom
+    [void]$ToolPageForm.ShowDialog()
 }
 
 function EditExistingFirewallRulesPage
@@ -315,7 +436,7 @@ function EditExistingFirewallRulesPage
     })
     $ToolPageForm.Add_SizeChanged({$ToolSelectionPageForm.WindowState = $ToolPageForm.WindowState})
     $ToolPageForm.Add_FormClosing({
-        if ((. CancelAccept -Message "Are you sure, changes will be lost? (check button focus)" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "Cancel")
+        if ((CancelAccept -Message "Are you sure, changes will be lost? (check button focus)" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "Cancel")
         {
             Write-Host "Cancel selected"
             {$_.Cancel = $true}
@@ -528,7 +649,7 @@ function ScanComputerForBlockedConnectionsPage
                     {
                         if ($JobsWaitingForActivation -eq $false)
                             {
-                            if ((. CancelAccept -Message "All network connectivity jobs have failed,`r`ndo you want to display diagnostic information?" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "OK")
+                            if ((CancelAccept -Message "All network connectivity jobs have failed,`r`ndo you want to display diagnostic information?" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "OK")
                             {
                                 #Remove-Variable -Name "DiagnosticResults" -Force -ErrorAction SilentlyContinue
                                 foreach ($NetworkConnectivityJob in $NetworkConnectivityJobs)
@@ -541,7 +662,7 @@ function ScanComputerForBlockedConnectionsPage
                         }
                         if ((Get-Date) -gt $WaitTime)
                         {
-                            if ((. CancelAccept -Message "Network connectivity tests are taking longer than expected,`r`nthis function requires TCP ports 135,5985 and 49152-65535.`r`nDo you want to continue?" -CancelButtonText "Abort" -AcceptButtonText "Continue") -eq "Cancel")
+                            if ((CancelAccept -Message "Network connectivity tests are taking longer than expected,`r`nthis function requires TCP ports 135,5985 and 49152-65535.`r`nDo you want to continue?" -CancelButtonText "Abort" -AcceptButtonText "Continue") -eq "Cancel")
                             {
                                 throw "Connectivity test aborted, scanning cancelled."
                             }
@@ -554,7 +675,7 @@ function ScanComputerForBlockedConnectionsPage
                 [datetime]$NetworkStateChange =  (Get-WinEvent -ComputerName $Computer -FilterHashtable @{LogName = "Microsoft-Windows-NetworkProfile/Operational"; ID = 4004} -MaxEvents 1 -ErrorAction Stop).TimeCreated.AddSeconds("1")
                 if ((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"}))
                 {
-                    if ((. CancelAccept -Message "A $((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"}).State) job has been found for this computer.`r`nDo you wants to connect to that job or start a new scan?" -CancelButtonText "New" -AcceptButtonText "Connect") -eq "Cancel")
+                    if ((CancelAccept -Message "A $((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"}).State) job has been found for this computer.`r`nDo you wants to connect to that job or start a new scan?" -CancelButtonText "New" -AcceptButtonText "Connect") -eq "Cancel")
                     {
                         (Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"})| Remove-Job
                         $EventsJob = Invoke-Command -ComputerName $Computer -ScriptBlock {$Events = (Get-WinEvent -FilterHashtable @{LogName = "Security"; ID = 5157; StartTime = $args[0]} -ErrorAction Stop); $Events} -AsJob -ArgumentList $NetworkStateChange
@@ -580,7 +701,7 @@ function ScanComputerForBlockedConnectionsPage
                     }
                     if ((Get-Date) -gt $WaitTime)
                     {
-                        if ((. CancelAccept -Message "$Computer`r`nscanning is taking longer than expected. If you`r`nabort waiting for this scan to complete the scan`r`nwill continue in the background and you can`r`ntry to get the results by starting a scan on`r`n$Computer`r`nDo you want to continue?" -CancelButtonText "Abort" -AcceptButtonText "Continue") -eq "Cancel")
+                        if ((CancelAccept -Message "$Computer`r`nscanning is taking longer than expected. If you`r`nabort waiting for this scan to complete the scan`r`nwill continue in the background and you can`r`ntry to get the results by starting a scan on`r`n$Computer`r`nDo you want to continue?" -CancelButtonText "Abort" -AcceptButtonText "Continue") -eq "Cancel")
                         {
                             throw "Waiting for scan job to complete aborted."
                         }
@@ -806,7 +927,7 @@ function ExportExistingRulesToPowerShellCommandsPage
     $ToolPageForm.Add_SizeChanged({$ToolSelectionPageForm.WindowState = $ToolPageForm.WindowState})
     $ExportExistingRulesToPowerShellCommandsBottomButtonPanel = New-Object -TypeName Windows.Forms.Panel -Property @{Width = $ToolPageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $ExportExistingRulesToPowerShellCommandsSaveFileDialog =  New-Object -TypeName System.Windows.Forms.SaveFileDialog
-    $ExportExistingRulesToPowerShellCommandsSaveFileDialog.Filter = "PowerShell script (*.ps1)|*.ps1|All files (*.*)|*.*"
+    $ExportExistingRulesToPowerShellCommandsSaveFileDialog.Filter = "PowerShell Files (*.ps1)|*.ps1|All files (*.*)|*.*"
     $ExportExistingRulesToPowerShellCommandsSaveAsButton = New-Object -TypeName Windows.Forms.Button -Property @{Text = "Save As"; Anchor = "Right"} 
     $ExportExistingRulesToPowerShellCommandsSaveAsButton.Add_Click(
     {
@@ -1024,7 +1145,7 @@ function MainThread
     {
         if ($EditExistingFirewallRulesDataGridView.Parent)
         {
-            #if ((. CancelAccept -Message "Are you sure, changes will be lost? (check button focus)" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "Cancel")
+            #if ((CancelAccept -Message "Are you sure, changes will be lost? (check button focus)" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "Cancel")
             #{
                 #$ToolPageForm_FormClosing=[System.Windows.Forms.FormClosingEventHandler]{$_.Cancel = $true}
                 $ToolSelectionPageForm.Size = $ToolPageForm.Size; $ToolSelectionPageForm.Location = $ToolPageForm.Location; $ToolSelectionPageForm.Show()
@@ -1081,9 +1202,9 @@ function MainThread
     $FindAllPoliciesWithFirewallRulesToolTip.SetToolTip($FindAllPoliciesWithFirewallRulesButton, "Use this tool to query a domain for policies`nthat have existing firewall rules, this list`ncan then be saved to a text file as reference.`n100% complete.")
     $UpdateDomainResourcesButton = New-Object -TypeName Windows.Forms.Button -Property @{Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin; Size = $ExportExistingRulesToPowerShellCommandsButton.Size; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $UpdateDomainResourcesButton.Text = "  Update domain resources"
-    $UpdateDomainResourcesButton.Add_Click({. UpdateDomainResourcesPage})
+    $UpdateDomainResourcesButton.Add_Click({$ToolSelectionPageForm.Hide(); UpdateDomainResourcesPage})
     $UpdateDomainResourcesToolTip = New-Object -TypeName System.Windows.Forms.ToolTip -Property @{AutoPopDelay = 7500}
-    $UpdateDomainResourcesToolTip.SetToolTip($UpdateDomainResourcesButton, "Use this tool to update domain resources that can be used`nto create or update firewall rules in group policy objects.`nNames can be used and will be translated into IP addresses`nwhich can be applied to multiple rules.`n25% complete.")
+    $UpdateDomainResourcesToolTip.SetToolTip($UpdateDomainResourcesButton, "Use this tool to update domain resources that can be used`nto create or update firewall rules in group policy objects.`nNames can be used and will be translated into IP addresses`nwhich can be applied to multiple rules.`n75% complete.")
     $EditExistingFirewallRulesButton = New-Object -TypeName Windows.Forms.Button -Property @{Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin; Size = $ExportExistingRulesToPowerShellCommandsButton.Size; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $EditExistingFirewallRulesButton.Text = "Edit existing firewall rules"
     $EditExistingFirewallRulesButton.Add_Click({$ToolSelectionPageForm.Hide(); . EditExistingFirewallRulesPage})
