@@ -1,3 +1,0 @@
-I'm putting together a script to collect existing Windows Firewall rules from a group policy object and create a script which can be used
-to apply these rules to other policies. 
-I'm planning to use a GUI so that rules can be modified with a drop-down so the script will not be supported over remoting.
