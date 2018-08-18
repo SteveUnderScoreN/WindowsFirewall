@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1808.12
+    Build 1808.13
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
@@ -18,7 +18,7 @@ if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Co
 
 function DefaultDomainResources
 {
-    [System.Collections.ArrayList]$Script:Resources = "DomainControllers","ProxyServers","DnsServers","CrlServers","Wpad_PacFileServers","TierXManagementServers","SqlServers","WebServers","FileServers","KeyManagementServers","BackupServers","ClusteredNodesAndManagementAddresses","ExternalVpnEndpoints","DirectAccessServers","TrustedDhcpSubnets","ServerRoleAdministrationServers"
+    [System.Collections.ArrayList]$Script:Resources = "DomainControllers","ProxyServers","DnsServers","CrlServers","Wpad_PacFileServers","TierXManagementServers","SqlServers","WebServers","FileServers","KeyManagementServers","BackupServers","ClusteredNodesAndManagementAddresses","ExternalVpnEndpoints","DirectAccessServers","TrustedDhcpSubnets","ServerRoleAdministrationServers"| Sort-Object
     foreach ($Resource in $Resources)
     {
         New-Variable -Name $Resource -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script"
@@ -45,7 +45,7 @@ function DefaultDomainResources
     # Version 0.8.0 domain resources
     [System.Collections.ArrayList]$Script:ServerRoleAdministrationServers += "LocalSubnet","Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
     # END of version 0.8.0 domain resources
-    [System.Collections.ObjectModel.ObservableCollection[Object]]$Script:ResourcesAndProxyPorts = $Resources + "ProxyServerPorts"
+    [System.Collections.ObjectModel.ObservableCollection[Object]]$Script:ResourcesAndProxyPorts = $Resources + "ProxyServerPorts"| Sort-Object
 }
 
 Add-Type -Assembly "System.Windows.Forms"
@@ -97,8 +97,19 @@ function PopUpMessage ($Message) # Need to use `r`n for newline
 
 function CancelAccept ($Message,$CancelButtonText,$AcceptButtonText) # Need to use `r`n for newline
 {
-    $CancelAcceptForm = New-Object -TypeName Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog"; Location = @{X = ($ToolPageForm.Location.X + 25); Y = ($ToolPageForm.Location.Y + 25)};StartPosition = "Manual" ; MinimumSize = @{Width = 200; Height = 100}; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false}
+    $CancelAcceptForm = New-Object -TypeName Windows.Forms.Form -Property @{FormBorderStyle = "FixedDialog"; Location = @{X = ($ToolPageForm.Location.X + 25); Y = ($ToolPageForm.Location.Y + 25)};StartPosition = "Manual" ; MinimumSize = @{Width = 200; Height = 100}; MaximizeBox = $false; MinimizeBox = $false; ControlBox = $false; KeyPreview = $true}
     $CancelAcceptForm.Add_Shown({$CancelAcceptAcceptButton.Focus()})
+    $CancelAcceptForm.Add_KeyPress(
+    {
+        if ($_.KeyChar -eq "y")
+        {
+            $CancelAcceptAcceptButton.PerformClick()
+        }
+        elseif ($_.KeyChar -eq "n")
+        {
+            $CancelAcceptCancelButton.PerformClick()
+        }
+    })
     $CancelAcceptBottomButtonPanel = New-Object -TypeName Windows.Forms.Panel -Property @{Width = $CancelAcceptForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $CancelAcceptCancelButton = New-Object -TypeName Windows.Forms.Button -Property @{Text = $CancelButtonText; Anchor = "Right"}
     $CancelAcceptCancelButton.Left = $CancelAcceptBottomButtonPanel.Width - $CancelAcceptCancelButton.Width - 5
@@ -322,7 +333,6 @@ function UpdateDomainResourcesPage
         $UpdateDomainResourcesValuesListBox.DataSource = (Get-Variable -Name $UpdateDomainResourcesResourcesListBox.SelectedItem).Value
     })
     $UpdateDomainResourcesResourcesListBox.DataSource = $Script:ResourcesAndProxyPorts
-    $UpdateDomainResourcesResourcesListBox.Sorted = $true
     $UpdateDomainResourcesValuesContextMenuStrip = New-Object -TypeName "System.Windows.Forms.ContextMenuStrip"
     $UpdateDomainResourcesValuesContextMenuStrip.Items.Add("Remove")
     $UpdateDomainResourcesValuesContextMenuStrip.Add_ItemClicked({$UpdateDomainResourcesRemoveButton.PerformClick()}) 
@@ -349,26 +359,34 @@ function UpdateDomainResourcesPage
         $AddDomainResourceAcceptButton.Left = $AddDomainResourceCancelButton.Left - $AddDomainResourceAcceptButton.Width - 5
         $AddDomainResourcePanel = New-Object -TypeName "Windows.Forms.Panel" -Property @{AutoScroll = $true;Anchor = "Top, Bottom, Left, Right"; Width = $AddDomainResourceForm.Width - 16; Height = $AddDomainResourceForm.Height - 82}
         $AddDomainResourceTextBox = New-Object -TypeName Windows.Forms.TextBox -Property @{width = $AddDomainResourcePanel.Width - 20; Location = @{X = 10; Y= 5}}
-        if ($UpdateDomainResourcesResourcesListBox.SelectedIndex -eq 9)
+        if ($UpdateDomainResourcesResourcesListBox.SelectedValue -eq "ProxyServerPorts")
         {
             $AddDomainResourceAcceptButton.Add_Click(
             {
-                if ($AddDomainResourceTextBox.Text -in $UpdateDomainResourcesValuesListBox.Items)
+                try
                 {
-                    PopUpMessage -Message "`"$($AddDomainResourceTextBox.Text)`" is already in the list."
-                }
-                else
-                {
-                    if ($AddDomainResourceTextBox.Text -in 1..65535)
+                    [int]$AddDomainResourceTextBox.Text
+                    if ($AddDomainResourceTextBox.Text -in $UpdateDomainResourcesValuesListBox.Items)
                     {
-                        $UpdateDomainResourcesValuesListBox.DataSource.Add($AddDomainResourceTextBox.Text)
-                        $UpdateDomainResourcesValuesListBox.DataSource = $null
-                        $UpdateDomainResourcesValuesListBox.DataSource = (Get-Variable -Name $UpdateDomainResourcesResourcesListBox.SelectedItem).Value
+                        PopUpMessage -Message "`"$($AddDomainResourceTextBox.Text)`" is already in the list."
                     }
                     else
                     {
-                     PopUpMessage -Message "Value it out of range."
+                        if ($AddDomainResourceTextBox.Text -in 1..65535)
+                        {
+                            $UpdateDomainResourcesValuesListBox.DataSource.Add($AddDomainResourceTextBox.Text)
+                            $UpdateDomainResourcesValuesListBox.DataSource = $null
+                            $UpdateDomainResourcesValuesListBox.DataSource = (Get-Variable -Name $UpdateDomainResourcesResourcesListBox.SelectedItem).Value
+                        }
+                        else
+                        {
+                         PopUpMessage -Message "Value is out of range."
+                        }
                     }
+                }
+                catch
+                {
+                    PopUpMessage -Message "Invalid input."
                 }
             })
             $AddDomainResourceStatusBar = New-Object -TypeName "Windows.Forms.StatusBar" -Property @{Dock = "Bottom"; Text = "Enter a port number from 1 to 65535."}
@@ -427,7 +445,7 @@ function UpdateDomainResourcesPage
                                                         $TextBoxValue = $AddDomainResourceTextBox.Text.replace(" ","")
                                                         switch -Wildcard ($TextBoxValue)
                                                         {
-                                                            "*/*"           { # A forward slash indicates a subnet has been specified
+                                                            "*/*"           { # A forward slash indicates a subnet has been specified, the subnet is not being validated in this build.
                                                                                 if ($TextBoxValue -in $UpdateDomainResourcesValuesListBox.Items)
                                                                                 {
                                                                                     PopUpMessage -Message "$TextBoxValue is already in the list."
@@ -509,20 +527,20 @@ function UpdateDomainResourcesPage
                     "Any"                           {
                                                         $AddDomainResourcePanel.Controls.Remove($AddDomainResourceTextBox)
                                                         $AddDomainResourcePanel.Controls.Remove($AddDomainResourceComboBox2)
-                                                        $AddDomainResourceStatusBar.Text = "Add any address"
+                                                        $AddDomainResourceStatusBar.Text = "Add `"Any IP address.`" "
                                                         break
                                                     }
                     "Predefined set of computers"   {
-                                                        $AddDomainResourceComboBox2.DataSource = "LocalSubnet","DNS","DHCP","DefaultGateway","Internet","Intranet"
+                                                        $AddDomainResourceComboBox2.DataSource = "DefaultGateway","DHCP","DNS","Internet","Intranet","LocalSubnet",
                                                         $AddDomainResourcePanel.Controls.Remove($AddDomainResourceTextBox)
                                                         $AddDomainResourcePanel.Controls.Add($AddDomainResourceComboBox2)
-                                                        $AddDomainResourceStatusBar.Text = "select a predefined set of computers"
+                                                        $AddDomainResourceStatusBar.Text = "Select a predefined set of computers to add."
                                                     }
                     "Domain resource"               {
-                                                        $AddDomainResourceComboBox2.DataSource = $UpdateDomainResourcesResourcesListBox.Items
+                                                        $AddDomainResourceComboBox2.DataSource = $Resources
                                                         $AddDomainResourcePanel.Controls.Remove($AddDomainResourceTextBox)
                                                         $AddDomainResourcePanel.Controls.Add($AddDomainResourceComboBox2)
-                                                        $AddDomainResourceStatusBar.Text = "Select an existing domain resource"
+                                                        $AddDomainResourceStatusBar.Text = "Select an existing domain resource to add."
                                                     }
                     "Computer name/IP address"      {
                                                         $AddDomainResourcePanel.Controls.Remove($AddDomainResourceComboBox2)
@@ -1313,13 +1331,6 @@ function MainThread
 {
     $DomainName = $env:USERDNSDOMAIN
     $ToolSelectionPageForm = New-Object -TypeName Windows.Forms.Form -Property @{FormBorderStyle = "Sizable"; StartPosition = "CenterScreen"; Width = 1024; Height = 512; MinimumSize = @{Width = 310; Height = 200}; Text = "Windows firewall tool selection"} 
-    $ToolSelectionPageForm.Add_Shown(
-    {
-        $FindAllPoliciesWithFirewallRulesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
-        $UpdateDomainResourcesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
-        $EditExistingFirewallRulesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
-        $ScanComputerForBlockedConnectionsButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
-    })
     $ToolSelectionPageBottomButtonPanel = New-Object -TypeName Windows.Forms.Panel -Property @{Width = $ToolSelectionPageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
     $ToolSelectionPageCancelButton = New-Object -TypeName Windows.Forms.Button -Property @{Text = "Exit"; Anchor = "Right"}
     $ToolSelectionPageCancelButton.Left = $ToolSelectionPageBottomButtonPanel.Width - $ToolSelectionPageCancelButton.Width - 16
@@ -1376,6 +1387,13 @@ function MainThread
     $BoldButtonFont = New-Object -TypeName System.Drawing.Font("Microsoft Sans Serif",($FontSize),[System.Drawing.FontStyle]::Bold) 
     $ExportExistingRulesToPowerShellCommandsButton = New-Object -TypeName Windows.Forms.Button -Property @{Margin = $Margin; Padding = $Padding; Width = 270; Height = 84; AutoSize = $true;AutoSizeMode = "GrowAndShrink"; BackColor = "DarkSlateGray"; ForeColor = "White"; Font = $BoldButtonFont}
     $ExportExistingRulesToPowerShellCommandsButton.Text = "Export existing`n rules to`nPowerShell commands" # As this button contains the most text all other buttons will inherit it's size
+    $ExportExistingRulesToPowerShellCommandsButton.Add_SizeChanged(
+    {
+        $FindAllPoliciesWithFirewallRulesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
+        $UpdateDomainResourcesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
+        $EditExistingFirewallRulesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
+        $ScanComputerForBlockedConnectionsButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
+    })
     $ExportExistingRulesToPowerShellCommandsButton.Add_Click({$ToolSelectionPageForm.Hide(); . ExportExistingRulesToPowerShellCommandsPage})
     $ExportExistingRulesToPowerShellCommandsToolTip = New-Object -TypeName System.Windows.Forms.ToolTip
     $ExportExistingRulesToPowerShellCommandsToolTip.SetToolTip($ExportExistingRulesToPowerShellCommandsButton, "Use this tool to query a domain for policies`nthat have existing firewall rules and then`nexport a policy to a PowerShell script.`n100% complete.")
