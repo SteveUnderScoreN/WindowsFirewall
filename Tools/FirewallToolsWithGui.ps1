@@ -445,7 +445,23 @@ function UpdateDomainResourcesPage
                                                         $TextBoxValue = $AddDomainResourceTextBox.Text.replace(" ","")
                                                         switch -Wildcard ($TextBoxValue)
                                                         {
-                                                            "*/*"           { # A forward slash indicates a subnet has been specified, the subnet is not being validated in this build.
+                                                            "*/*"   { # A forward slash indicates a subnet has been specified, the subnet is not being validated in this build.
+                                                                        if ($TextBoxValue -in $UpdateDomainResourcesValuesListBox.Items)
+                                                                        {
+                                                                            PopUpMessage -Message "$TextBoxValue is already in the list."
+                                                                            break
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            $UpdateDomainResourcesValuesListBox.DataSource.Add($TextBoxValue)
+                                                                            break
+                                                                        }
+                                                                    }
+                                                            "*-*"   {
+                                                                        try
+                                                                        { # If each side of the hyphen is an IP address then a range has been specified
+                                                                            if ([ipaddress]$TextBoxValue.Split("-")[0] -and [ipaddress]$TextBoxValue.Split("-")[1])
+                                                                            { 
                                                                                 if ($TextBoxValue -in $UpdateDomainResourcesValuesListBox.Items)
                                                                                 {
                                                                                     PopUpMessage -Message "$TextBoxValue is already in the list."
@@ -457,41 +473,25 @@ function UpdateDomainResourcesPage
                                                                                     break
                                                                                 }
                                                                             }
-                                                            "*-*"           {
-                                                                                try
-                                                                                { # If each side of the hyphen is an IP address then a range has been specified
-                                                                                    if ([ipaddress]$TextBoxValue.Split("-")[0] -and [ipaddress]$TextBoxValue.Split("-")[1])
-                                                                                    { 
-                                                                                        if ($TextBoxValue -in $UpdateDomainResourcesValuesListBox.Items)
-                                                                                        {
-                                                                                            PopUpMessage -Message "$TextBoxValue is already in the list."
-                                                                                            break
-                                                                                        }
-                                                                                        else
-                                                                                        {
-                                                                                            $UpdateDomainResourcesValuesListBox.DataSource.Add($TextBoxValue)
-                                                                                            break
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                                catch [Management.Automation.PSInvalidCastException]
-                                                                                {
-                                                                                    $IpAddresses = AttemptResolveDnsName -Name $TextBoxValue
-                                                                                }
+                                                                        }
+                                                                        catch [Management.Automation.PSInvalidCastException]
+                                                                        {
+                                                                            $IpAddresses = AttemptResolveDnsName -Name $TextBoxValue
+                                                                        }
+                                                                    }
+                                                            default {
+                                                                        try
+                                                                        {
+                                                                            if ([ipaddress]$TextBoxValue)
+                                                                            {
+                                                                                $IpAddresses = $TextBoxValue
                                                                             }
-                                                            default         {
-                                                                                try
-                                                                                {
-                                                                                    if ([ipaddress]$TextBoxValue)
-                                                                                    {
-                                                                                        $IpAddresses = $TextBoxValue
-                                                                                    }
-                                                                                }
-                                                                                catch [Management.Automation.PSInvalidCastException]
-                                                                                {
-                                                                                    $IpAddresses = AttemptResolveDnsName -Name $TextBoxValue
-                                                                                }
-                                                                            }
+                                                                        }
+                                                                        catch [Management.Automation.PSInvalidCastException]
+                                                                        {
+                                                                            $IpAddresses = AttemptResolveDnsName -Name $TextBoxValue
+                                                                        }
+                                                                    }
                                                         }
                                                         if ($IpAddresses)
                                                         {
