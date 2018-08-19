@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1808.13
+    Build 1808.14
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
@@ -233,6 +233,20 @@ function AttemptResolveDnsName ($Name)
     }
 }
 
+function SelectAll ($Control)
+{
+    if ($_.KeyData -eq "A, Control")
+    {
+        $_.SuppressKeyPress = $true
+        $Control.BeginUpdate()
+        for ($i = 0; $i -lt $Control.Items.Count; $i++)
+        {
+            $Control.SetSelected($i, $true)
+        }
+        $Control.EndUpdate()
+    }
+}
+
 function FindAllPoliciesWithFirewallRulesPage
 {
     $ToolPageForm = New-Object -TypeName Windows.Forms.Form -Property @{FormBorderStyle = "Sizable"; Location = $ToolSelectionPageForm.Location; StartPosition = "Manual"; Size = $ToolSelectionPageForm.Size; MinimumSize = $ToolSelectionPageForm.MinimumSize; WindowState = $ToolSelectionPageForm.WindowState; Text = "Find all policies with firewall rules"} 
@@ -287,7 +301,7 @@ function UpdateDomainResourcesPage
     {
         DefaultDomainResources
     }
-    $ToolPageForm = New-Object -TypeName "Windows.Forms.Form" -Property @{FormBorderStyle = "Sizable"; Location = $ToolSelectionPageForm.Location; StartPosition = "Manual"; Size = $ToolSelectionPageForm.Size; MinimumSize = $ToolSelectionPageForm.MinimumSize; WindowState = $ToolSelectionPageForm.WindowState; Text = "Edit existing firewall rules"} 
+    $ToolPageForm = New-Object -TypeName "Windows.Forms.Form" -Property @{FormBorderStyle = "Sizable"; Location = $ToolSelectionPageForm.Location; StartPosition = "Manual"; Size = $ToolSelectionPageForm.Size; MinimumSize = $ToolSelectionPageForm.MinimumSize; WindowState = $ToolSelectionPageForm.WindowState; Text = "Update domain resources"} 
     $ToolPageForm.Add_SizeChanged({$ToolSelectionPageForm.WindowState = $ToolPageForm.WindowState})
     $ToolPageForm.Add_Shown({$UpdateDomainResourcesResourcesListBox.SetSelected(0, $true)})
     $UpdateDomainResourcesBottomButtonPanel = New-Object -TypeName "Windows.Forms.Panel" -Property @{Width = $ToolPageForm.Width - 16; Height = 22; Dock = "Bottom"; BackColor = "WhiteSmoke"}
@@ -337,6 +351,10 @@ function UpdateDomainResourcesPage
     $UpdateDomainResourcesValuesContextMenuStrip.Items.Add("Remove")
     $UpdateDomainResourcesValuesContextMenuStrip.Add_ItemClicked({$UpdateDomainResourcesRemoveButton.PerformClick()}) 
     $UpdateDomainResourcesValuesListBox = New-Object -TypeName "System.Windows.Forms.ListBox" -Property @{Anchor = "Top,Left,Right"; Location = @{X = ($UpdateDomainResourcesResourcesListBox.Location.X + $UpdateDomainResourcesResourcesListBox.Width + 13); Y = 13}; BorderStyle = "Fixed3D"; Size = @{Width = ($ToolPageForm.Width - 269); Height = $UpdateDomainResourcesResourcesListBox.Height - 35}; SelectionMode = "MultiExtended"; ContextMenuStrip = $UpdateDomainResourcesValuesContextMenuStrip}
+    $UpdateDomainResourcesValuesListBox.Add_KeyDown(
+    {
+        SelectAll -Control $UpdateDomainResourcesValuesListBox
+    })
     $UpdateDomainResourcesRemoveButton = New-Object -TypeName "Windows.Forms.Button" -Property @{Text = "Remove"; Anchor = "Top,Right"; Location = @{X = $ToolPageForm.Width - $UpdateDomainResourcesRemoveButton.Width - 105; Y = $UpdateDomainResourcesValuesListBox.Location.Y + $UpdateDomainResourcesValuesListBox.Height + 5}}
     $UpdateDomainResourcesRemoveButton.Add_Click(
     {
@@ -732,6 +750,10 @@ function EditExistingFirewallRulesPage
     {
         $EditExistingFirewallRulesAcceptButton.PerformClick()
     })
+    $EditExistingFirewallRulesRulesListBox.Add_KeyDown(
+    {
+        SelectAll -Control $EditExistingFirewallRulesRulesListBox
+    })
     $EditExistingFirewallRulesDataGridView = New-Object -TypeName "System.Windows.Forms.DataGridView" -Property @{AutoSize = $true; BackGroundColor = "WhiteSmoke"; Dock = "Fill"; AutoGenerateColumns = $false; ColumnHeadersHeightSizeMode = 'AutoSize'}
     $EditExistingFirewallRulesDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn"))
     $EditExistingFirewallRulesDataGridView.Columns[0].AutoSizeMode = "AllCellsExceptHeader"
@@ -750,7 +772,7 @@ function EditExistingFirewallRulesPage
             }
             else
             {
-                $EditExistingFirewallRulesDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewComboBoxColumn" -Property @{ReadOnly = $false}))
+                $EditExistingFirewallRulesDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewComboBoxColumn" -Property @{FlatStyle = "Popup"}))
                 $EditExistingFirewallRulesDataGridView.Columns[$ColumnIndex].Name = $PropertyName
                 $ColumnIndex ++
             }
@@ -990,12 +1012,12 @@ function ScanComputerForBlockedConnectionsPage
             }
             catch [System.Management.Automation.RuntimeException]
             {
-                if ($error[0].Exception.Message -eq "Connectivity test aborted, scanning cancelled.")
+                if ($error[0].Exception.Message -eq "Connectivity test aborted, scanning cancelled." -or "Waiting for scan job to complete aborted.")
                 {
                 }
-                if ($error[0].Exception.Message -eq "Waiting for scan job to complete aborted.")
-                {
-                }
+                #if ($error[0].Exception.Message -eq "Waiting for scan job to complete aborted.")
+                #{
+                #}
                 elseif ($error[0].Exception.Message -eq "Connectivity test failed.")
                 {
                     . PopUpMessage -Message "Connectivity test failed, is`r`n$Computer`r`navalable on the network and are`r`nTCP ports 135,5985 and 49152-65535`r`nopen from this computer."
@@ -1077,7 +1099,7 @@ function ScanComputerForBlockedConnectionsPage
             }
             else
             {
-                $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewComboBoxColumn" -Property @{ReadOnly = $true}))
+                $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewComboBoxColumn" -Property @{FlatStyle = "Popup"}))
                 $ScanComputerForBlockedConnectionsDataGridView.Columns[$ColumnIndex].Name = $PropertyName
                 $ColumnIndex ++
             }
