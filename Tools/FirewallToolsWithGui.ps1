@@ -7,12 +7,12 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.1
+    Build 1809.2
 #>
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
 {
-    PopUpMessage -Message "This script invokes a GUI and cannot be run over a remot session or on PowerShell Core editions)"
+    Write-Warning -Message $Language[14]
     break
 }
 
@@ -102,22 +102,6 @@ function GroupPoliciesWithExistingFirewallRules
     $Script:GroupPoliciesWithExistingFirewallRules = $Script:GroupPoliciesWithExistingFirewallRules| Sort-Object
 }
 
-function GetComputerFileSystemVariables
-{
-    $DriveLetters = Invoke-Command -Session $ComputerPsSession -ScriptBlock {
-        (Get-WmiObject "Win32_Volume").DriveLetter
-    }
-    $ProgramFiles = Invoke-Command -Session $ComputerPsSession -ScriptBlock {
-        $env:ProgramFiles
-    }
-    $ProgramFilesX86 = Invoke-Command -Session $ComputerPsSession -ScriptBlock {
-        ${env:ProgramFiles(x86)}
-    }
-    $SystemRoot = Invoke-Command -Session $ComputerPsSession -ScriptBlock {
-        $env:SystemRoot
-    }
-}
-
 function PopUpMessage ($Message,$CurrentForm = $ToolPageForm) # Need to use `r`n for newline
 {
     $ReviewAndSaveForm.Location
@@ -163,10 +147,10 @@ function PopUpMessage ($Message,$CurrentForm = $ToolPageForm) # Need to use `r`n
             Width = 141
             Height = 70
         }
-        MaximumSize = @{
-            Width = 500
-            Height = 500
-        }
+        #MaximumSize = @{
+        #    Width = 500
+        #    Height = 500
+        #}
     }
     $PopUpMessageTextBox.Size = $PopUpMessageTextBox.PreferredSize
     $PopUpMessageForm.Width = $PopUpMessageTextBox.Width + 9
@@ -314,7 +298,7 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
                 }
                 else
                 {
-                    if ((CancelAccept -Message "All other items in the list will be`r`nremoved, do you want to continue?" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "OK")
+                    if ((CancelAccept -Message "All other items in the list will be`r`nremoved, do you want to continue?" -CancelButtonText $Language[21] -AcceptButtonText $Language[20]) -eq "OK")
                     {
                         $AddResourceValue.DataSource.Clear()
                         $AddResourceTextBox.Text = "Any" # This will be used to set the value in the data source.
@@ -349,7 +333,7 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
         BackColor = "WhiteSmoke"
     }
     $AddResourceCancelButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
-        Text = "Exit"
+        Text = $Language[26]
         Anchor = "Right"
     } # This is not the default cancel button because the form size is different to the tool form?
     $AddResourceCancelButton.Left = $AddResourceBottomButtonPanel.Width - $AddResourceCancelButton.Width - 5
@@ -746,7 +730,7 @@ function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
             BackColor = "WhiteSmoke"
         }
         $ChangeValueCancelButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
-            Text = "Exit"
+            Text = $Language[26]
             Anchor = "Right"
         }# This is not the default cancel button because the form size is different to the tool form?
         $ChangeValueCancelButton.Left = $ChangeValueBottomButtonPanel.Width - $ChangeValueCancelButton.Width - 5
@@ -861,7 +845,7 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
             BackColor = "WhiteSmoke"
         }
         $ReviewAndSaveCancelButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
-            Text = "Exit"
+            Text = $Language[26]
             Anchor = "Right"
         }
         $ReviewAndSaveCancelButton.Left = $ReviewAndSaveBottomButtonPanel.Width - $ReviewAndSaveCancelButton.Width - 16
@@ -886,6 +870,12 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
         }
         $ReviewAndSaveSaveToGpoButton.Add_Click(
         {
+            if($ExistingRules -eq $false)
+            {
+                ResourceSelection -ResourceSelectionData ((Get-GPO -All).DisplayName| Sort-Object) -ResourceSelectionStatusBarText $Language[23] -CurrentForm $ReviewAndSaveForm
+                $Commands.Insert(0, "`$GpoSession = Open-NetGPO -PolicyStore `"$DomainName\$(($SelectedItems -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$'))`"")
+                $Commands.Add("Save-NetGPO -GPOSession `$GpoSession")
+            }
             try
             {
                 $ReviewAndSaveStatusBar.Text = "Updating domain group policy object."
@@ -897,7 +887,7 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
             }
             catch
             {
-                PopUpMessage -Message $error[0] -CurrentForm = $ReviewAndSaveForm
+                PopUpMessage -Message $error[0] -CurrentForm $ReviewAndSaveForm
             }
             $ReviewAndSaveStatusBar.Text = "Review the commands and save them to a .ps1 or back to the domain GPO."
         })
@@ -931,7 +921,6 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
     if ($ExistingRules)
     {
         $ChangesFound = $false
-        $Cmdlet = "Set-NetFirewallRule"
         $Commands = New-Object -TypeName "System.Collections.ArrayList"
         $Commands.Add("`$GpoSession = Open-NetGPO -PolicyStore `"$(($WindowsFirewallRules[0].PolicyStore -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$'))`"")
         foreach ($SelectedIndex in $SelectedIndices)
@@ -965,7 +954,56 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
     }
     else
     {
-        $Cmdlet = "New-NetFirewallRule"
+        $Commands = New-Object -TypeName "System.Collections.ArrayList"
+        foreach ($WindowsFirewallRule in $WindowsFirewallRules)
+        {
+            $Index = $Commands.Add("New-NetFirewallRule -GPOSession `$GpoSession")
+            foreach ($PropertyName in "Name","DisplayName")
+            {# These properties are always needed
+                $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$') -join '","')
+                $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$EscapedValue`""
+            }
+            foreach ($PropertyName in "Description","Group","Platform","Owner")
+            {
+                if ($WindowsFirewallRule.$PropertyName)
+                {# These properties are added if they have a value
+                    $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$') -join '","')
+                    $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$EscapedValue`""
+                }
+            }
+            if ($WindowsFirewallRule.Enabled -eq $false)
+            {# This property is added if it's not the default
+                $Commands[$Index] = $Commands[$Index] + " -Enabled $false" 
+            }
+            foreach ($PropertyName in "Profile","RemoteAddress","LocalAddress","Program","Package","Protocol","LocalPort","RemotePort","IcmpType","DynamicTarget","Service")
+            {
+                if ($WindowsFirewallRule.$PropertyName -and $WindowsFirewallRule.$PropertyName -ne "Any")
+                {# These properties are added if they are not the default
+                    $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$') -join '","')
+                    $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$EscapedValue`""
+                }
+            }
+            if ($WindowsFirewallRule.Direction -eq "Outbound")
+            {# This property is added if it's not the default
+                $Commands[$Index] = $Commands[$Index] + " -Direction `"Outbound`"" 
+            }
+            if ($WindowsFirewallRule.Action -eq "Block")
+            {# This property is added if it's not the default
+                $Commands[$Index] = $Commands[$Index] + " -Action `"Block`"" 
+            }
+            if ($WindowsFirewallRule.EdgeTraversalPolicy -eq "Allow")
+            {# This property is added if it's not the default
+                $Commands[$Index] = $Commands[$Index] + " -EdgeTraversalPolicy `"Allow`"" 
+            }
+            foreach ($PropertyName in "LooseSourceMapping","LocalOnlyMapping")
+            {
+                if ($WindowsFirewallRule.$PropertyName -eq $true)
+                {# These properties are added if they are not the default
+                    $Commands[$Index] = $Commands[$Index] + " -$PropertyName $true" 
+                }
+            }
+        }# This function does not check for the properties InterfaceAlias, InterfaceType and Security. These may be added in a futire build.
+        ReviewAndSave
     }
 }
 
@@ -1072,8 +1110,8 @@ function EditFirewallRules # This is designed to be called from inside a click e
             $ColumnIndex ++
         }
     }
-    $EditFirewallRulesDataGridView.Columns[1].Frozen = $true
-    $EditFirewallRulesDataGridView.Columns[1].Width = 150
+    $EditFirewallRulesDataGridView.Columns["DisplayName"].Frozen = $true
+    $EditFirewallRulesDataGridView.Columns["DisplayName"].Width = 150
     New-Variable -Name "EditFirewallRulesDataGridViewButtonPanel" -Value (New-Object -TypeName "Windows.Forms.Panel" -Property @{
         Width = $EditFirewallRulesDataGridView.Width
         Height = 22
@@ -1134,7 +1172,7 @@ function EditFirewallRules # This is designed to be called from inside a click e
                 BackColor = "WhiteSmoke"
             }
              $SelectItemsToRemoveCancelButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
-                Text = "Exit"
+                Text = $Language[26]
                 Anchor = "Right"
             }
             $SelectItemsToRemoveCancelButton.Left = $SelectItemsToRemoveBottomButtonPanel.Width - $SelectItemsToRemoveCancelButton.Width - 5
@@ -1190,6 +1228,82 @@ function EditFirewallRules # This is designed to be called from inside a click e
     $EditFirewallRulesDataGridViewButtonPanel.Controls.Add($EditFirewallRulesDataGridViewAddButton)
     $EditFirewallRulesDataGridViewPanel.Controls.Add($EditFirewallRulesDataGridView)
     $EditFirewallRulesDataGridViewPanel.Controls.Add($EditFirewallRulesDataGridViewButtonPanel)
+}
+
+function ResourceSelection ($ResourceSelectionData,$ResourceSelectionStatusBarText,$CurrentForm = $ToolPageForm,$ResourceSelectionSelectionMode = "MultiExtended")
+{   
+    $ResourceSelectionForm = New-Object -TypeName "Windows.Forms.Form" -Property @{
+        AutoSize = $true
+        FormBorderStyle = "Sizable"
+        Location = @{
+            x = $CurrentForm.Location.X + 25
+            Y = $CurrentForm.Location.Y + 25
+        }
+        StartPosition = "Manual"
+        Text = $Language[22]
+    }
+    $ResourceSelectionBottomButtonPanel = New-Object -TypeName "Windows.Forms.Panel" -Property @{
+        Width = $ResourceSelectionForm.Width - 16
+        Height = 22
+        Dock = "Bottom"
+        BackColor = "WhiteSmoke"
+    }
+    $ResourceSelectionCancelButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
+        Text = $Language[26]
+        Anchor = "Right"
+    }
+    $ResourceSelectionCancelButton.Left = $ResourceSelectionBottomButtonPanel.Width - $ResourceSelectionCancelButton.Width - 16
+    $ResourceSelectionAcceptButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
+        Text = $Language[25]
+        Anchor = "Right"
+    }
+    $ResourceSelectionAcceptButton.Left = $ResourceSelectionCancelButton.Left - $ResourceSelectionAcceptButton.Width - 5
+    $ResourceSelectionAcceptButtonClick =
+    {# This is created as a script outside the click event because it's also used as a double click event, if the double click event calls the click event that would create an additional scope and object data is lost
+        if ($ResourceSelectionListBox.SelectedItems)
+        {
+            Set-Variable "SelectedItems" -Value $ResourceSelectionListBox.SelectedItems -Scope 2
+            $ResourceSelectionForm.Close()
+        }
+    }
+    $ResourceSelectionAcceptButton.Add_Click($ResourceSelectionAcceptButtonClick)
+    $ResourceSelectionForm.CancelButton = $ResourceSelectionCancelButton
+    $ResourceSelectionForm.AcceptButton = $ResourceSelectionAcceptButton
+    $ResourceSelectionListBox = New-Object "System.Windows.Forms.ListBox" -Property @{
+        AutoSize = $true
+        BackColor = "WhiteSmoke"
+        Dock = "Fill"
+        SelectionMode = $ResourceSelectionSelectionMode
+    }
+    $ResourceSelectionListBox.Add_DoubleClick($ResourceSelectionAcceptButtonClick)
+    if ($ResourceSelectionSelectionMode -eq "MultiExtended")
+    {
+        $ResourceSelectionListBox.Add_KeyDown(
+        {
+            SelectAll -Control $ResourceSelectionListBox
+        })
+    }
+    foreach ($ResourceSelection in $ResourceSelectionData)
+    { # Loop through data and add to listbox
+        [void]$ResourceSelectionListBox.Items.Add($ResourceSelection)
+    }
+    $ResourceSelectionStatusBar = New-Object -TypeName "Windows.Forms.StatusBar" -Property @{
+        Dock = "Bottom"
+        Text = $ResourceSelectionStatusBarText
+    }
+    $ResourceSelectionPanel = New-Object -TypeName "Windows.Forms.Panel" -Property @{
+        AutoScroll = $true
+        Anchor = "Top, Bottom, Left, Right"
+        Width = $ResourceSelectionForm.Width - 16
+        Height = $ResourceSelectionForm.Height - 82
+    }
+    $ResourceSelectionPanel.Controls.Add($ResourceSelectionListBox)
+    $ResourceSelectionBottomButtonPanel.Controls.Add($ResourceSelectionCancelButton)
+    $ResourceSelectionBottomButtonPanel.Controls.Add($ResourceSelectionAcceptButton)
+    $ResourceSelectionForm.Controls.Add($ResourceSelectionPanel) # Added to the form first to set focus on this panel
+    $ResourceSelectionForm.Controls.Add($ResourceSelectionBottomButtonPanel)
+    $ResourceSelectionForm.Controls.Add($ResourceSelectionStatusBar) # Added to the form last to ensure the status bar gets put at the bottom
+    [void]$ResourceSelectionForm.ShowDialog()
 }
 
 function FindAllPoliciesWithFirewallRulesPage
@@ -1445,7 +1559,7 @@ function EditExistingFirewallRulesPage
     {
         if ($EditFirewallRulesDataGridViewPanel.Parent)
         {
-            if ((CancelAccept -Message "Are you sure, any unsaved`r`nchanges will be lost?" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "Cancel")
+            if ((CancelAccept -Message $Language[19] -CancelButtonText $Language[21] -AcceptButtonText $Language[20]) -eq "Cancel")
             {
                 $_.Cancel = $true
             }
@@ -1505,7 +1619,7 @@ function EditExistingFirewallRulesPage
         BackColor = "WhiteSmoke"
     }
     $EditExistingFirewallRulesAcceptButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
-        Text = "Select"
+        Text = $Language[25]
         Anchor = "Right"
     }
     $EditExistingFirewallRulesAcceptButtonClick =
@@ -1606,7 +1720,7 @@ function EditExistingFirewallRulesPage
     }
     $EditExistingFirewallRulesAcceptButton.Add_Click($EditExistingFirewallRulesAcceptButtonClick)
     $EditExistingFirewallRulesBackButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
-        Text = "Back"
+        Text = $Language[24]
         Anchor = "Right"
     }
     $EditExistingFirewallRulesBackButton.Left = $EditExistingFirewallRulesAcceptButton.Left - $EditExistingFirewallRulesBackButton.Width - 5
@@ -1622,10 +1736,10 @@ function EditExistingFirewallRulesPage
         }
         elseif ($EditFirewallRulesDataGridView.Parent)
         {
-            if ((CancelAccept -Message "Are you sure, any unsaved`r`nchanges will be lost?" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "OK")
+            if ((CancelAccept -Message $Language[19] -CancelButtonText $Language[21] -AcceptButtonText $Language[20]) -eq "OK")
             {
                 $EditExistingFirewallRulesStatusBar.Text = "$($WindowsFirewallRules.Count) rule(s) imported, select one or more rules to edit."
-                $EditExistingFirewallRulesAcceptButton.Text = "Select"
+                $EditExistingFirewallRulesAcceptButton.Text = $Language[25]
                 $EditExistingFirewallRulesPanel.Controls.Remove($EditFirewallRulesDataGridViewPanel)
                 $EditExistingFirewallRulesPanel.Controls.Add($EditExistingFirewallRulesRulesListBox)
                 $EditExistingFirewallRulesRulesListBox.Focus()
@@ -1672,6 +1786,7 @@ function ScanComputerForBlockedConnectionsPage
     class NetworkConnection
     {
         [int] $ProcessId
+        [string] $DisplayName
         [string] $Application
         [string] $Direction
         [ipaddress] $SourceAddress
@@ -1679,7 +1794,7 @@ function ScanComputerForBlockedConnectionsPage
         [ipaddress] $DestAddress
         [int] $DestPort
         [string] $Protocol
-        [collections.arraylist] $Service
+        [System.Collections.ArrayList] $Service
         [string] $Notes
     }
     $ToolPageForm = New-Object -TypeName "Windows.Forms.Form" -Property @{
@@ -1701,7 +1816,7 @@ function ScanComputerForBlockedConnectionsPage
     {
         if ($EditFirewallRulesDataGridViewPanel.Parent)
         {
-            if ((CancelAccept -Message "Are you sure, any unsaved`r`nchanges will be lost?" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "Cancel")
+            if ((CancelAccept -Message $Language[19] -CancelButtonText $Language[21] -AcceptButtonText $Language[20]) -eq "Cancel")
             {
                 $_.Cancel = $true
             }
@@ -1725,14 +1840,10 @@ function ScanComputerForBlockedConnectionsPage
         BackColor = "WhiteSmoke"
     }
     $ScanComputerForBlockedConnectionsCancelButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
-        Text = "Exit"
+        Text = $Language[26]
         Anchor = "Right"
-    }
+    } # This is not the default cancel button because the form size is different to the tool form?
     $ScanComputerForBlockedConnectionsCancelButton.Left = $ScanComputerForBlockedConnectionsBottomButtonPanel.Width - $ScanComputerForBlockedConnectionsCancelButton.Width - 5
-    $ScanComputerForBlockedConnectionsCancelButton.Add_Click(
-    {
-        $ToolSelectionPageForm.Show()
-    }) # This is not the default cancel button because the form size is different to the tool form?
     $ScanComputerForBlockedConnectionsAcceptButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
         Text = "Scan"
         Anchor = "Right"
@@ -1796,7 +1907,7 @@ function ScanComputerForBlockedConnectionsPage
                     {
                         if ($JobsWaitingForActivation -eq $false)
                             {
-                            if ((CancelAccept -Message "All network connectivity jobs have failed,`r`ndo you want to display diagnostic information?" -CancelButtonText "No" -AcceptButtonText "Yes") -eq "OK")
+                            if ((CancelAccept -Message "All network connectivity jobs have failed,`r`ndo you want to display diagnostic information?" -CancelButtonText $Language[21] -AcceptButtonText $Language[20]) -eq "OK")
                             {
                                 foreach ($NetworkConnectivityJob in $NetworkConnectivityJobs)
                                 {
@@ -1818,6 +1929,12 @@ function ScanComputerForBlockedConnectionsPage
                     }
                 }
                 Until ($NetworkConnectivityJobRanToCompletion -eq $true)
+                $ComputerCimSession = New-CimSession -ComputerName $Computer
+                $ComputerPsSession = New-PSSession -ComputerName $Computer
+                Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                    if(-not (AuditPol /Get /Subcategory:"Filtering Platform Connection").Where({$_ -like "*Filtering Platform Connection*Failure"}))
+                    {throw "Failure auditing is not enabled."}
+                }
                 [datetime]$NetworkStateChange =  (Get-WinEvent -ComputerName $Computer -FilterHashtable @{
                     LogName = "Microsoft-Windows-NetworkProfile/Operational"
                     ID = 4004
@@ -1886,43 +2003,42 @@ function ScanComputerForBlockedConnectionsPage
                     }
                 }
                 $ScanComputerForBlockedConnectionsStatusBar.Text = "Collecting additional details."
-                $ComputerCimSession = New-CimSession -ComputerName $Computer
-                $RunningServices = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service" -Filter "State = 'Running'"
-                $ComputerCimSession| Remove-CimSession
-                $ComputerPsSession = New-PSSession -ComputerName $Computer
-                . GetComputerFileSystemVariables 
+                $Services = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service"
+                $DriveLetters = (Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Volume"| Where-Object {$_.DriveType -eq 3 -and $_.DriveLetter -ne $null}).DriveLetter
+                if ($DriveLetters.Count -eq 1)
+                {
+                    $SingleDriveLetter = $DriveLetters
+                }
+                $ProgramFiles = (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                    $env:ProgramFiles
+                }).Replace("\","\\")
+                $ProgramFilesX86 = (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                    ${env:ProgramFiles(x86)}
+                }).Replace("\","\\")
+                $SystemRoot = (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                    $env:SystemRoot
+                }).Replace("\","\\")
                 [array]$AdHarvest = Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                     (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\iphlpsvc\Parameters\ADHarvest\" -Name "LastFetchContents").LastFetchContents.Split(",")
                 } # Not currently used
-                $ComputerPsSession| Remove-PSSession
                 [NetworkConnection[]]$InboundNetworkConnections = @()
                 [NetworkConnection[]]$OutboundNetworkConnections = @()
                 $EventCount = 1
                 $EventTotal = ($Events.Message).Count
-                foreach ($Event in $Events.Message) # This sometimes stops interacting with the desktop but the processing contunues and the grid view is eventually shown.
+                foreach ($Event in $Events.Message)
                 {
-                    #if (($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text' -like "\device\harddiskvolume*")
-                    #    {
-                    #        $HardDiskVolume = ((Select-String -InputObject (($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text') -Pattern '\\device\\harddiskvolume') -split("\\"))[2].TrimStart("harddiskvolume")
-                    #        $Drive = (Get-Variable -Name HardDiskVolume$HardDiskVolume).Value
-                    #    }
-                    $ScanComputerForBlockedConnectionsStatusBar.Text = "Sorting $EventCount of $EventTotal."
+                    $ScanComputerForBlockedConnectionsStatusBar.Text = "Adding $EventCount of $EventTotal."
                     $EventCount ++
                     $NetworkConnection = New-Object -TypeName "NetworkConnection"
                     $EventMessage = $Event.Split("`n").TrimStart().TrimEnd()
                     $NetworkConnection.ProcessID = $EventMessage[3].TrimStart("Process ID:").TrimStart()
-                    $NetworkConnection.Application = $EventMessage[4].TrimStart("Application Name:").TrimStart() -replace "\\device\\harddiskvolume\d+\\windows\\","%SystemRoot%\"  # -replace "\\device\\harddiskvolume\d+","$Drive" - Will need to search remote drives to populate the HarddiskVolume variables.
+                    $NetworkConnection.Application = $EventMessage[4].TrimStart("Application Name:").TrimStart()
                     $NetworkConnection.Direction = $EventMessage[7].TrimStart("Direction:").TrimStart()
                     $NetworkConnection.SourceAddress = $EventMessage[8].TrimStart("Source Address:").TrimStart()
                     $NetworkConnection.SourcePort = $EventMessage[9].TrimStart("Source Port:").TrimStart()
                     $NetworkConnection.DestAddress = $EventMessage[10].TrimStart("Destination Address:").TrimStart()
                     $NetworkConnection.DestPort = $EventMessage[11].TrimStart("Destination Port:").TrimStart()
-                    $NetworkConnection.Protocol = $EventMessage[12].TrimStart("Protocol:").TrimStart() -replace "^1$","ICMPv4" -replace "^6$","TCP" -replace "^17$","UDP" -replace "^58$","ICMPv6"
-                    $NetworkConnection.Service = @(($RunningServices.Where({$_.ProcessId -eq $NetworkConnection.ProcessID})).Name)
-                    if ($NetworkConnection.Service)
-                    {
-                        $NetworkConnection.Notes += "Service:$(($RunningServices.Where({$_.ProcessId -eq $NetworkConnection.ProcessID})).DisplayName)"
-                    }
+                    $NetworkConnection.Protocol = $EventMessage[12].TrimStart("Protocol:").TrimStart()
                     if ($NetworkConnection.Direction -eq "Inbound")
                     {
                         $InboundNetworkConnections += $NetworkConnection
@@ -1932,14 +2048,73 @@ function ScanComputerForBlockedConnectionsPage
                         $OutboundNetworkConnections += $NetworkConnection
                     }
                 }
+                $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[13]
                 [NetworkConnection[]]$FilteredOutboundNetworkConnections = $OutboundNetworkConnections| Select-Object -Property * -ExcludeProperty "SourcePort" -Unique
                 [NetworkConnection[]]$FilteredInboundNetworkConnections = $InboundNetworkConnections| Select-Object -Property * -ExcludeProperty "DestPort" -Unique
-                [System.Collections.ArrayList]$NetworkConnections += $FilteredOutboundNetworkConnections
-                [System.Collections.ArrayList]$NetworkConnections += $FilteredInboundNetworkConnections
-                $ScanComputerForBlockedConnectionsDataGridView.DataSource = $NetworkConnections
+                #if (($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text' -like "\device\harddiskvolume*")
+                #    {
+                #        $HardDiskVolume = ((Select-String -InputObject (($Event.Event.EventData.Data.Where({$_.Name -EQ "Application"})).'#text') -Pattern '\\device\\harddiskvolume') -split("\\"))[2].TrimStart("harddiskvolume")
+                #        $Drive = (Get-Variable -Name HardDiskVolume$HardDiskVolume).Value
+                #    }
+                New-Variable -Name "FilteredNetworkConnections" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope 1 -Force
+                Set-Variable -Name "FilteredNetworkConnections" -Value ([System.Collections.ArrayList](Get-Variable -Name "FilteredOutboundNetworkConnections").Value) -Scope 1
+                Set-Variable -Name "FilteredNetworkConnections" -Value ([System.Collections.ArrayList]((Get-Variable -Name "FilteredNetworkConnections").Value + (Get-Variable -Name "FilteredInboundNetworkConnections").Value)) -Scope 1
+                $ApplicationFileDescription = @{}
+                $ConnectionCount = $FilteredNetworkConnections.Count
+                foreach ($FilteredNetworkConnection in $FilteredNetworkConnections)
+                {
+                    $Count ++
+                    $ScanComputerForBlockedConnectionsStatusBar.Text = "$($Language[17]) $Count/$ConnectionCount"
+                    $FilteredNetworkConnection.Service = @(($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).Name)
+                    $FilteredNetworkConnection.Protocol = $FilteredNetworkConnection.Protocol -replace "^1$","ICMPv4" -replace "^6$","TCP" -replace "^17$","UDP" -replace "^58$","ICMPv6"
+                    If ($SingleDriveLetter -and $FilteredNetworkConnection.Application -ne "System")
+                    {# Will need to search remote drives to populate the HarddiskVolume variables.
+                        $FilteredNetworkConnection.Application = $FilteredNetworkConnection.Application -replace "\\device\\harddiskvolume\d+",$SingleDriveLetter
+                        if ($FilteredNetworkConnection.Application -eq "$($SystemRoot.Replace("\\","\"))\System32\svchost.exe")
+                        {
+                            $FilteredNetworkConnection.DisplayName = "SVCHOST $(($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).DisplayName)"
+                        }
+                        elseif ($ApplicationFileDescription.($FilteredNetworkConnection.Application))
+                        {
+                            $FilteredNetworkConnection.DisplayName = "$($ApplicationFileDescription.($FilteredNetworkConnection.Application)) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound","Out").Replace("Inbound","In") + ")"
+                        }
+                        else
+                        {
+                            $ApplicationFileDescription.($FilteredNetworkConnection.Application) = Invoke-Command -Session $ComputerPsSession -ScriptBlock {(Get-Item $args[0]).VersionInfo.FileDescription} -ArgumentList $FilteredNetworkConnection.Application
+                            $FilteredNetworkConnection.DisplayName = "$($ApplicationFileDescription.($FilteredNetworkConnection.Application)) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound","Out").Replace("Inbound","In") + ")"
+                        }
+                        $FilteredNetworkConnection.Application = $FilteredNetworkConnection.Application -replace $ProgramFiles,"%ProgramFiles%" -replace $ProgramFilesX86,"%ProgramFiles% (x86)" -replace $SystemRoot,"%SystemRoot%"
+                    }
+                    else
+                    {
+                        if ($PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)" -and $FilteredNetworkConnection.Direction -eq "Inbound")
+                        {
+                            $FilteredNetworkConnection.DisplayName = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[0] + " (" + $FilteredNetworkConnection.Protocol + "-" + "In" + ")"
+                        }
+                        elseif ($PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)")
+                        {                  
+                            $FilteredNetworkConnection.DisplayName = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[0] + " (" + $FilteredNetworkConnection.Protocol + "-" + "Out" + ")"
+                        }
+                        else
+                        {
+                            $FilteredNetworkConnection.DisplayName = "Port " + $FilteredNetworkConnection.DestPort + " (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound","Out").Replace("Inbound","In") + ")"
+                        }
+                    }
+                    if ($PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)" -and $FilteredNetworkConnection.Direction -eq "Inbound")
+                    {
+                        $FilteredNetworkConnection.Notes = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[1]
+                    }
+                    elseif ($PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)")
+                    {
+                        $FilteredNetworkConnection.Notes = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[1]
+                    }
+                }
+                $ComputerCimSession| Remove-CimSession
+                $ComputerPsSession| Remove-PSSession
+                $ScanComputerForBlockedConnectionsDataGridView.DataSource = $FilteredNetworkConnections
                 $ScanComputerForBlockedConnectionsDataGridView.Columns["ProcessId"].Visible = $false
                 $ScanComputerForBlockedConnectionsDataGridView.Columns["SourcePort"].Visible = $false
-                $ScanComputerForBlockedConnectionsStatusBar.Text = "Please select one or more rules to create."
+                $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[18]
                 $ScanComputerForBlockedConnectionsPanel.Controls.Remove($ScanComputerForBlockedConnectionsTextBox)
                 $ToolPageForm.FormBorderStyle = "Sizable"
                 $ToolPageForm.Location = $ToolSelectionPageForm.Location # Need to look closer at this.
@@ -1954,7 +2129,7 @@ function ScanComputerForBlockedConnectionsPage
                 $ScanComputerForBlockedConnectionsBottomButtonPanel.Controls.Add($ScanComputerForBlockedConnectionsBackButton)
                 $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridView)
                 $ScanComputerForBlockedConnectionsDataGridView.Focus()
-                UpdateDataSourceForComboBoxCell -ArrayList $NetworkConnections -DataGridView $ScanComputerForBlockedConnectionsDataGridView
+                UpdateDataSourceForComboBoxCell -ArrayList $FilteredNetworkConnections -DataGridView $ScanComputerForBlockedConnectionsDataGridView
             }
             catch [System.Management.Automation.RuntimeException]
             {
@@ -1969,6 +2144,10 @@ function ScanComputerForBlockedConnectionsPage
                 {
                     PopUpMessage -Message "No matching events were found since the last network`r`nstate change on $(($NetworkStateChange.AddSeconds(-1)).ToString()), event ID 4004 in`r`nlog 'Microsoft-Windows-NetworkProfile/Operational'"
                 }
+                elseif ($error[0].Exception.Message -eq "Failure auditing is not enabled.")
+                {
+                    PopUpMessage -Message $Language[15]
+                }
                 else
                 {
                     PopUpMessage -Message "Scan failed.`r`n$($error[0].Exception.Message)System.Management.Automation.RuntimeException"
@@ -1978,16 +2157,103 @@ function ScanComputerForBlockedConnectionsPage
             {
                 PopUpMessage -Message "Scan failed.`r`n$($error[0].Exception.Message)"
             }
-            $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
+            if ($ScanComputerForBlockedConnectionsTextBox.Parent)
+            {# The datagridview control was not added so the status text is reset.
+                $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[16]
+            }
         }
         elseif ($ScanComputerForBlockedConnectionsDataGridView.Parent)
         {
-             PopUpMessage -Message "Not available in this build."
-             # Build firewall rules from selected and call EditFireWallRules
+            [int[]]$SelectedIndices = @()
+            for ($i = 0; $i -lt $ScanComputerForBlockedConnectionsDataGridView.Rows.Count; $i++)
+            {
+                if ($($ScanComputerForBlockedConnectionsDataGridView.Rows[$i].Cells[0].Value) -eq $true)
+                {
+                    $SelectedIndices += $i
+                }
+            }
+            if ($SelectedIndices.Count)
+            {
+            New-Variable -Name "WindowsFirewallRules" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope 1 -Force
+            foreach ($ScanComputerForBlockedConnectionsRule in $FilteredNetworkConnections[$SelectedIndices])
+            {
+                if ($ScanComputerForBlockedConnectionsRule.Direction -eq "Inbound")
+                {
+                    $LocalAddress = @($ScanComputerForBlockedConnectionsRule.DestAddress)
+                    $RemoteAddress = @("LocalSubnet","Intranet")
+                    $LocalPort = @($ScanComputerForBlockedConnectionsRule.DestPort)
+                    $RemotePort = @("Any")
+                }
+                else
+                {
+                    $LocalAddress = @("Any")
+                    $RemoteAddress = @($ScanComputerForBlockedConnectionsRule.DestAddress)
+                    $LocalPort = @("Any")
+                    $RemotePort = @($ScanComputerForBlockedConnectionsRule.DestPort)
+                }
+                if ($ScanComputerForBlockedConnectionsRule.Service.Count -gt 1)
+                {
+                    Write-Host "Need to deal with multiple service selection."
+                }
+                else
+                {
+                    $Service = $ScanComputerForBlockedConnectionsRule.Service
+                }
+                $WindowsFirewallRule = New-Object -TypeName "WindowsFirewallRule" -Property @{
+                    PolicyStore = ""
+                    Name = New-Guid
+                    DisplayName = $ScanComputerForBlockedConnectionsRule.DisplayName
+                    Description = ""
+                    Group = ""
+                    Enabled = $true
+                    Profile = @("Domain")
+                    Direction = $ScanComputerForBlockedConnectionsRule.Direction
+                    Action = "Allow"
+                    LocalAddress =  $LocalAddress
+                    RemoteAddress = $RemoteAddress
+                    Protocol = $ScanComputerForBlockedConnectionsRule.Protocol
+                    LocalPort = $LocalPort
+                    RemotePort = $RemotePort
+                    Program = $ScanComputerForBlockedConnectionsRule.Application
+                    Package = ""
+                    Service = $Service
+                }
+                Set-Variable -Name "WindowsFirewallRules" -Value ([System.Collections.ArrayList]((Get-Variable -Name "WindowsFirewallRules").value + $WindowsFirewallRule)) -Scope 1
+            }
+            $ScanComputerForBlockedConnectionsStatusBar.Text = "$($WindowsFirewallRules.Count) rule(s) imported, edit rules and then select one or more rules to create the commands."
+            EditFirewallRules
+            $EditFirewallRulesDataGridView.DataSource = $WindowsFirewallRules
+            $ScanComputerForBlockedConnectionsPanel.Controls.Add($EditFirewallRulesDataGridViewPanel)
+            $ScanComputerForBlockedConnectionsPanel.Controls.Remove($ScanComputerForBlockedConnectionsDataGridView)
+            UpdateDataSourceForComboBoxCell -ArrayList $WindowsFirewallRules -DataGridView $EditFirewallRulesDataGridView # This needs to run after the gridview control has been added so that the rows exist
+            }
+            else
+            {
+                PopUpMessage -Message $Language[18]
+            }
+        }
+        elseif ($EditFirewallRulesDataGridViewPanel.Parent)
+        {
+            [int[]]$SelectedIndices = @()
+            for ($i = 0; $i -lt $EditFirewallRulesDataGridView.Rows.Count; $i++)
+            {
+                if ($($EditFirewallRulesDataGridView.Rows[$i].Cells[0].Value) -eq $true)
+                {
+                    $SelectedIndices += $i
+                }
+            }
+            if ($SelectedIndices.Count)
+            {
+                BuildCommands
+            }
+            else
+            {
+                PopUpMessage -Message "Please select one or more rules."
+            }
         }
     })
     $ScanComputerForBlockedConnectionsBackButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
-        Text = "Back"
+        Text = $Language[24]
         Anchor = "Right"
     }
     $ScanComputerForBlockedConnectionsBackButton.Left = $ScanComputerForBlockedConnectionsAcceptButton.Left - $ScanComputerForBlockedConnectionsBackButton.Width - 5
@@ -2015,9 +2281,18 @@ function ScanComputerForBlockedConnectionsPage
             $ToolPageForm.MinimizeBox = $false
             $ToolPageForm.ControlBox = $false
             $ScanComputerForBlockedConnectionsAcceptButton.Text = "Scan"
-            $ScanComputerForBlockedConnectionsStatusBar.Text = "Enter a computer name or IP address to scan."
+            $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[16]
             $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsTextBox)
             $ScanComputerForBlockedConnectionsTextBox.focus()
+        }
+        elseif ($EditFirewallRulesDataGridViewPanel.Parent)
+        {
+            if ((CancelAccept -Message $Language[19] -CancelButtonText $Language[21] -AcceptButtonText $Language[20]) -eq "OK")
+            {
+                $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[18]
+                $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridView)
+                $ScanComputerForBlockedConnectionsPanel.Controls.Remove($EditFirewallRulesDataGridViewPanel)
+            }
         }
     })
     $ToolPageForm.CancelButton = $ScanComputerForBlockedConnectionsCancelButton
@@ -2036,7 +2311,7 @@ function ScanComputerForBlockedConnectionsPage
     $EmptyNetworkConnection = New-Object -TypeName "NetworkConnection"
     foreach ($PropertyName in ($EmptyNetworkConnection.PsObject.Properties).name)
     {
-        if ($PropertyName -in "ProcessId","Application","Direction","SourceAddress","SourcePort","DestAddress","DestPort","Protocol","Notes")
+        if ($PropertyName -in "ProcessId","DisplayName","Application","Direction","SourceAddress","SourcePort","DestAddress","DestPort","Protocol","Notes")
         {
             $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewTextBoxColumn" -Property @{
                 ReadOnly = $true
@@ -2054,6 +2329,8 @@ function ScanComputerForBlockedConnectionsPage
             $ColumnIndex ++
         }
     }
+    $ScanComputerForBlockedConnectionsDataGridView.Columns["DisplayName"].Frozen = $true
+    $ScanComputerForBlockedConnectionsDataGridView.Columns["DisplayName"].Width = 150
     $ScanComputerForBlockedConnectionsTextBox = New-Object -TypeName "Windows.Forms.TextBox" -Property @{
         width = $ToolPageForm.Width - 36
         Location = @{
@@ -2064,7 +2341,7 @@ function ScanComputerForBlockedConnectionsPage
     }
     $ScanComputerForBlockedConnectionsStatusBar = New-Object -TypeName "Windows.Forms.StatusBar" -Property @{
         Dock = "Bottom"
-        Text = "Enter a computer name or IP address to scan."
+        Text = $Language[16]
     }
     $ScanComputerForBlockedConnectionsPanel = New-Object -TypeName "Windows.Forms.Panel" -Property @{
         AutoScroll = $true
@@ -2314,10 +2591,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
 "@
                 }
                 [string[]]$Commands += $Command
-                #($FirewallRule| Get-NetFirewallInterfaceFilter).InterfaceAlias
-                #$FirewallRule| Get-NetFirewallInterfaceTypeFilter
-                #$FirewallRule| Get-NetFirewallSecurityFilter
-            }
+            }# This function does not check for the properties InterfaceAlias, InterfaceType and Security. These may be added in a futire build.
             $Commands| Out-File $ExportExistingRulesToPowerShellCommandsSaveFileDialog.FileName
             Remove-Variable -Name "GPOSession" -Force
             $ExportExistingRulesToPowerShellCommandsStatusBar.Text = "Select a policy to export."
@@ -2358,6 +2632,8 @@ function MainThread
     $FontSizeDivisor = 45
     $MarginDivisor = 20
     $PaddingDivisor = 125
+    $Language = $English
+    $PortData = $EnglishPortData
     $ToolSelectionPageForm = New-Object -TypeName "Windows.Forms.Form" -Property @{
         FormBorderStyle = "Sizable"
         StartPosition = "CenterScreen"
@@ -2367,7 +2643,7 @@ function MainThread
             Width = 310
             Height = 200
         }
-        Text = "Windows firewall tool selection"
+        Text = $Language[0]
     }
     $ToolSelectionPageBottomButtonPanel = New-Object -TypeName "Windows.Forms.Panel" -Property @{
         Width = $ToolSelectionPageForm.Width - 16
@@ -2376,13 +2652,13 @@ function MainThread
         BackColor = "WhiteSmoke"
     }
     $ToolSelectionPageCancelButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
-        Text = "Exit"
+        Text = $Language[12]
         Anchor = "Right"
     }
     $ToolSelectionPageCancelButton.Left = $ToolSelectionPageBottomButtonPanel.Width - $ToolSelectionPageCancelButton.Width - 16
     $ToolSelectionPageForm.CancelButton = $ToolSelectionPageCancelButton
     $DefaultPageCancelButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
-        Text = "Exit"
+        Text = $Language[12]
         Anchor = "Right"
     }
     $DefaultPageCancelButton.Add_Click(
@@ -2437,7 +2713,7 @@ function MainThread
         ForeColor = "White"
         Font = $BoldButtonFont
     }
-    $ExportExistingRulesToPowerShellCommandsButton.Text = "Export existing`n rules to`nPowerShell commands" # As this button contains the most text all other buttons will inherit it's size
+    $ExportExistingRulesToPowerShellCommandsButton.Text = $Language[1] # As this button contains the most text all other buttons will inherit it's size
     $ExportExistingRulesToPowerShellCommandsButton.Add_SizeChanged(
     {
         $FindAllPoliciesWithFirewallRulesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
@@ -2452,14 +2728,14 @@ function MainThread
         $ToolSelectionPageForm.Show()   
     })
     $ExportExistingRulesToPowerShellCommandsToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
-    $ExportExistingRulesToPowerShellCommandsToolTip.SetToolTip($ExportExistingRulesToPowerShellCommandsButton, "Use this tool to query a domain for policies`nthat have existing firewall rules and then`nexport a policy to a PowerShell script.`n100% complete.")
+    $ExportExistingRulesToPowerShellCommandsToolTip.SetToolTip($ExportExistingRulesToPowerShellCommandsButton, $Language[2])
     $FindAllPoliciesWithFirewallRulesButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
         Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin
         BackColor = "DarkSlateGray"
         ForeColor = "White"
         Font = $BoldButtonFont
     }
-    $FindAllPoliciesWithFirewallRulesButton.Text = "Find all policies with firewall rules"
+    $FindAllPoliciesWithFirewallRulesButton.Text = $Language[3]
     $FindAllPoliciesWithFirewallRulesButton.Add_Click(
     {
         $ToolSelectionPageForm.Hide()
@@ -2467,14 +2743,14 @@ function MainThread
         $ToolSelectionPageForm.Show()   
     })
     $FindAllPoliciesWithFirewallRulesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
-    $FindAllPoliciesWithFirewallRulesToolTip.SetToolTip($FindAllPoliciesWithFirewallRulesButton, "Use this tool to query a domain for policies`nthat have existing firewall rules, this list`ncan then be saved to a text file as reference.`n100% complete.")
+    $FindAllPoliciesWithFirewallRulesToolTip.SetToolTip($FindAllPoliciesWithFirewallRulesButton, $Language[4])
     $UpdateDomainResourcesButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
         Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin
         BackColor = "DarkSlateGray"
         ForeColor = "White"
         Font = $BoldButtonFont
     }
-    $UpdateDomainResourcesButton.Text = "  Update domain resources"
+    $UpdateDomainResourcesButton.Text = $Language[5]
     $UpdateDomainResourcesButton.Add_Click(
     {
         $ToolSelectionPageForm.Hide()
@@ -2484,14 +2760,14 @@ function MainThread
     $UpdateDomainResourcesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip" -Property @{
         AutoPopDelay = 7500
     }
-    $UpdateDomainResourcesToolTip.SetToolTip($UpdateDomainResourcesButton, "Use this tool to update domain resources that can be used`nto create or update firewall rules in group policy objects.`nNames can be used and will be translated into IP addresses`nwhich can be applied to multiple rules.`n100% complete.")
+    $UpdateDomainResourcesToolTip.SetToolTip($UpdateDomainResourcesButton, $Language[6])
     $EditExistingFirewallRulesButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
         Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin
         BackColor = "DarkSlateGray"
         ForeColor = "White"
         Font = $BoldButtonFont
     }
-    $EditExistingFirewallRulesButton.Text = "Edit existing firewall rules"
+    $EditExistingFirewallRulesButton.Text = $Language[7]
     $EditExistingFirewallRulesButton.Add_Click(
     {
         $ToolSelectionPageForm.Hide()
@@ -2501,14 +2777,14 @@ function MainThread
     $EditExistingFirewallRulesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip" -Property @{
         AutoPopDelay = 7500
     }
-    $EditExistingFirewallRulesToolTip.SetToolTip($EditExistingFirewallRulesButton, "Use this tool to edit existing firewall rules, domain resources can be`nselected and DNS will be used to resolve all IP addresses to be used.`nMultiple rules can be edited at once and saved to a PowerShell`nscript or saved back to the domain.`n95% complete.")
+    $EditExistingFirewallRulesToolTip.SetToolTip($EditExistingFirewallRulesButton, $Language[8])
     $ScanComputerForBlockedConnectionsButton = New-Object -TypeName "Windows.Forms.Button" -Property @{
         Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin
         BackColor = "DarkSlateGray"
         ForeColor = "White"
         Font = $BoldButtonFont
     }
-    $ScanComputerForBlockedConnectionsButton.Text = "Scan computer for blocked connections"
+    $ScanComputerForBlockedConnectionsButton.Text = $Language[9]
     $ScanComputerForBlockedConnectionsButton.Add_Click(
     {
         $ToolSelectionPageForm.Hide()
@@ -2516,10 +2792,10 @@ function MainThread
         $ToolSelectionPageForm.Show()   
     })
     $ScanComputerForBlockedConnectionsToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
-    $ScanComputerForBlockedConnectionsToolTip.SetToolTip($ScanComputerForBlockedConnectionsButton, "Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`n90% complete.")
+    $ScanComputerForBlockedConnectionsToolTip.SetToolTip($ScanComputerForBlockedConnectionsButton, $Language[10])
     $ToolSelectionPageStatusBar = New-Object -TypeName "Windows.Forms.StatusBar" -Property @{
         Dock = "Bottom"
-        Text = "Please select a tool to launch."
+        Text = $Language[11]
     }
     $ToolSelectionPageBottomButtonPanel.Controls.Add($ToolSelectionPageCancelButton)
     $ToolButtonPanel.Controls.Add($ExportExistingRulesToPowerShellCommandsButton)
@@ -2532,4 +2808,42 @@ function MainThread
     $ToolSelectionPageForm.Controls.Add($ToolSelectionPageStatusBar) # Added to the form last to ensure the status bar gets put at the bottom
     [void]$ToolSelectionPageForm.ShowDialog()
 }
+
+$EnglishPortData = @{
+"0-ICMPv4" = "Echo request","TBA"
+"0-ICMPv6" = "Echo request","TBA"
+"80-TCP" = "HTTP","Unsecured web service, consider using secure HTTPS."
+"445-TCP" = "SMB","File sharing, can be used to exfiltrate data and should only be used within the LocalSubnet and Intranet`r`nClients should only accept inbound connections from tier management resources"
+}
+
+$English = @(
+"Windows firewall tool selection"
+"Export existing`n rules to`nPowerShell commands"
+"Use this tool to query a domain for policies`nthat have existing firewall rules and then`nexport a policy to a PowerShell script.`n100% complete."
+"Find all policies with firewall rules"
+"Use this tool to query a domain for policies`nthat have existing firewall rules, this list`ncan then be saved to a text file as reference.`n100% complete."
+"  Update domain resources"
+"Use this tool to update domain resources that can be used`nto create or update firewall rules in group policy objects.`nNames can be used and will be translated into IP addresses`nwhich can be applied to multiple rules.`n100% complete."
+"Edit existing firewall rules"
+"Use this tool to edit existing firewall rules, domain resources can be`nselected and DNS will be used to resolve all IP addresses to be used.`nMultiple rules can be edited at once and saved to a PowerShell`nscript or saved back to the domain.`n95% complete."
+"Scan computer for blocked connections"
+"Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`n95% complete."
+"Please select a tool to launch."
+"Exit"
+"Removing duplicate entries."
+"This script invokes a GUI and cannot be run over a remot session or on PowerShell Core editions)"
+"Filtering platform connection auditing is not enabled.`r`nThis can be enabled using the command;`r`nAuditpol /Set /Subcategory:`"Filtering Platform Packet Drop`" /Failure:Enable`r`nOr via group policy at the location;`"Computer Configuration\Policies\Windows Settings\`r`nSecurity Settings\Advanced Audit Policy Configuration\Audit Policies\Object Access\`r`nAudit Filtering Platform Connection"
+"Enter a computer name or IP address to scan."
+"Updating blocked connection"
+"Please select one or more rules to create."
+"Are you sure, any unsaved`r`nchanges will be lost?"
+"Yes"
+"No"
+"Resource selection"
+"Please select a GPO to update."
+"Back"
+"Select"
+"Exit"
+)
+
 MainThread
