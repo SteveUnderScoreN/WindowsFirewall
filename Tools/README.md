@@ -5,6 +5,6 @@
 ### The following tools are in development
  - Edit existing firewall rules - Use this tool to edit existing firewall rules, domain resources can be selected and DNS will be used to resolve all IP addresses to be used. Multiple rules can be edited at once and saved to a PowerShell script or saved back to the domain.
 The current build will allow bulk/single modification of DisplayName, Description, Enabled, Direction, Action, LocalAddress, LocalPort, RemoteAddress, RemotePort with a preview and has the save to GPO/.ps1 function enabled. 95% complete.
- - Scan computer for blocked connections - Use this tool to scan a computer for blocked network connections and to create new firewall rules that can be saved to a PowerShell script or saved to a group policy object. The current build can scan a computer with a single drive and create rules that can be saved to a file or to the domain. 95% complete.
+ - Scan computer for blocked connections - Use this tool to scan a computer for blocked network connections and to create new firewall rules that can be saved to a PowerShell script or saved to a group policy object. Almost all core functionality is working. 97% complete.
  
 They are currently all in the one script.
