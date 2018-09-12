@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.3
+    Build 1809.4
 #>
 
 class WindowsFirewallRule
@@ -17,9 +17,9 @@ class WindowsFirewallRule
     [string] $DisplayName
     [string] $Description
     [string] $Group 
-    [ValidateSet("True","False")]
+    [ValidateSet("True", "False")]
     [String] $Enabled = $true
-    [ValidateSet("Any","Domain","Private","Public")]
+    [ValidateSet("Any", "Domain", "Private", "Public")]
     [System.collections.arraylist] $Profile  = @("Any")
     [ValidateSet("Inbound", "Outbound")]
     [string] $Direction = "Inbound"
@@ -46,32 +46,32 @@ class WindowsFirewallRule
     
 function DefaultDomainResources
 {
-    [System.Collections.ArrayList]$Script:Resources = "DomainControllers","ProxyServers","DnsServers","CrlServers","Wpad_PacFileServers","TierXManagementServers","SqlServers","WebServers","FileServers","KeyManagementServers","BackupServers","ClusteredNodesAndManagementAddresses","ExternalVpnEndpoints","DirectAccessServers","TrustedDhcpSubnets","ServerRoleAdministrationServers"| Sort-Object
+    [System.Collections.ArrayList]$Script:Resources = "DomainControllers", "ProxyServers", "DnsServers", "CrlServers", "Wpad_PacFileServers", "TierXManagementServers", "SqlServers", "WebServers", "FileServers", "KeyManagementServers", "BackupServers", "ClusteredNodesAndManagementAddresses", "ExternalVpnEndpoints", "DirectAccessServers", "TrustedDhcpSubnets", "ServerRoleAdministrationServers"| Sort-Object
     foreach ($Resource in $Resources)
     {
         New-Variable -Name $Resource -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script"
     }
     New-Variable -Name "ProxyServerPorts" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script"
     # Version 0.7.0 domain resources
-    [System.Collections.ArrayList]$Script:DomainControllers += "127.0.0.1","SERVERNAME"
+    [System.Collections.ArrayList]$Script:DomainControllers += "127.0.0.1", "SERVERNAME"
     [System.Collections.ArrayList]$Script:ProxyServerPorts += "8080"
-    [System.Collections.ArrayList]$Script:ProxyServers += "LocalSubnet","Intranet"
+    [System.Collections.ArrayList]$Script:ProxyServers += "LocalSubnet", "Intranet"
     [System.Collections.ArrayList]$Script:DnsServers += $Script:DomainControllers # Specify these if you do not have DNS on each domain controller or you have additional DNS servers
-    [System.Collections.ArrayList]$Script:CrlServers += "LocalSubnet","Intranet"
-    [System.Collections.ArrayList]$Script:Wpad_PacFileServers += "LocalSubnet","Intranet"
-    [System.Collections.ArrayList]$Script:TierXManagementServers += "LocalSubnet","Intranet" # These are used in tier X firewall baselines to define which computers can manage the device at a particular tier
+    [System.Collections.ArrayList]$Script:CrlServers += "LocalSubnet", "Intranet"
+    [System.Collections.ArrayList]$Script:Wpad_PacFileServers += "LocalSubnet", "Intranet"
+    [System.Collections.ArrayList]$Script:TierXManagementServers += "LocalSubnet", "Intranet" # These are used in tier X firewall baselines to define which computers can manage the device at a particular tier
     [System.Collections.ArrayList]$Script:SqlServers += "127.0.0.4"
-    [System.Collections.ArrayList]$Script:WebServers += "LocalSubnet","Intranet"
-    [System.Collections.ArrayList]$Script:FileServers += "LocalSubnet","Intranet"
-    [System.Collections.ArrayList]$Script:KeyManagementServers += "LocalSubnet","Intranet"
+    [System.Collections.ArrayList]$Script:WebServers += "LocalSubnet", "Intranet"
+    [System.Collections.ArrayList]$Script:FileServers += "LocalSubnet", "Intranet"
+    [System.Collections.ArrayList]$Script:KeyManagementServers += "LocalSubnet", "Intranet"
     [System.Collections.ArrayList]$Script:BackupServers += "127.0.0.1"
-    [System.Collections.ArrayList]$Script:ClusteredNodesAndManagementAddresses += "LocalSubnet","Intranet"
+    [System.Collections.ArrayList]$Script:ClusteredNodesAndManagementAddresses += "LocalSubnet", "Intranet"
     [System.Collections.ArrayList]$Script:ExternalVpnEndpoints += "127.0.0.2 -  127.0.0.3" # This is the externally resolvable IPSec hostname or address
     [System.Collections.ArrayList]$Script:DirectAccessServers += "127.0.0.128/25" # This is the externally resolvable hostname or address of the DirectAccess IPHTTPS endpoint
     [System.Collections.ArrayList]$Script:TrustedDhcpSubnets += "Any" # This is client enterprise subnets and includes subnets issued by the VPN server, "Predefined set of computers" cannot be used here
     # END of version 0.7.0 domain resources
     # Version 0.8.0 domain resources
-    [System.Collections.ArrayList]$Script:ServerRoleAdministrationServers += "LocalSubnet","Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
+    [System.Collections.ArrayList]$Script:ServerRoleAdministrationServers += "LocalSubnet", "Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
     # END of version 0.8.0 domain resources
     [System.Collections.ObjectModel.ObservableCollection[Object]]$Script:ResourcesAndProxyPorts = $Resources + "ProxyServerPorts"| Sort-Object
 }
@@ -343,7 +343,7 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
         }
         Text= "Resource type:"
     }
-    if ($AddResourceProperty -in "LocalPort","ProxyServerPorts","RemotePort")
+    if ($AddResourceProperty -in "LocalPort", "ProxyServerPorts", "RemotePort")
     {
         $AddResourceAcceptButton.Add_Click(
         {
@@ -378,7 +378,7 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
                     }
                 try
                 {
-                    $TextBoxValue = $AddResourceTextBox.Text.replace(" ","")
+                    $TextBoxValue = $AddResourceTextBox.Text.replace(" ", "")
                     if ($TextBoxValue -like "*-*" -and (($TextBoxValue).Split("-").Count -eq 2))
                     {
                         if (([int]($TextBoxValue).Split("-")[0] -in 1..65535) -and ([int]($TextBoxValue).Split("-")[1] -in 1..65535) -and ([int]($TextBoxValue).Split("-")[0] -lt [int]($TextBoxValue).Split("-")[1]))
@@ -414,22 +414,24 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
             BackColor = "WhiteSmoke"
             DropDownStyle = "DropDownList"
         }
-        $AddResourceComboBox1.DataSource = @("Port number","Any")
+        $AddResourceComboBox1.DataSource = @("Port number", "Any")
         $AddResourceComboBox1.Add_SelectedValueChanged(
         {
             switch ($AddResourceComboBox1.SelectedItem)
             {
-                "Any"           {
-                                    $AddResourcePanel.Controls.Remove($AddResourceTextBox)
-                                    $AddResourceStatusBar.Text = "Add `"Any IP address.`" "
-                                    break
-                                }
-                "Port number"   {
-                                    $AddResourceTextBox.Text = ""
-                                    $AddResourcePanel.Controls.Add($AddResourceTextBox)
-                                    $AddResourceStatusBar.Text = "Enter a port number or range from 1 to 65535."
-                                    $AddResourceTextBox.Focus()
-                                }
+                "Any"
+                {
+                    $AddResourcePanel.Controls.Remove($AddResourceTextBox)
+                    $AddResourceStatusBar.Text = "Add `"Any IP address.`" "
+                    break
+                }
+                "Port number"
+                {
+                    $AddResourceTextBox.Text = ""
+                    $AddResourcePanel.Controls.Add($AddResourceTextBox)
+                    $AddResourceStatusBar.Text = "Enter a port number or range from 1 to 65535."
+                    $AddResourceTextBox.Focus()
+                }
             }
         })
         $AddResourceStatusBar = New-Object -TypeName "System.Windows.Forms.StatusBar" -Property @{
@@ -443,115 +445,119 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
         {
             switch ($AddResourceComboBox1.SelectedItem)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                         {
-            "Any"                           {
-                                                AnyResource
+            "Any"
+            {
+                AnyResource
+                break
+            }
+            "Predefined set of computers"
+            {
+                foreach ($AddResourceValue in $AddResourceValues)
+                {
+                    if ($AddResourceComboBox2.SelectedValue -in $AddResourceValue.Items)
+                    {
+                        PopUpMessage -Message "`"$($AddResourceComboBox2.SelectedValue)`" is already in the list."
+                    }
+                    else
+                    {
+                        $AddResourceValue.DataSource.Add($AddResourceComboBox2.SelectedValue)
+                        $AddResourceTextBox.Text = $AddResourceComboBox2.SelectedValue
+                        ResetDataSource -ResetDataSourceData $AddResourceValue  
+                    }
+                }
+                break
+            }
+            "Domain resource"
+            {
+                foreach ($Value in (Get-Variable -Name $AddResourceComboBox2.SelectedValue).Value)
+                {
+                    foreach ($AddResourceValue in $AddResourceValues)
+                    {
+                        if ($Value -in $AddResourceValue.Items)
+                        {
+                            PopUpMessage -Message "`"$Value`" is already in the list."
+                        }
+                        else
+                        {
+                            $AddResourceValue.DataSource.Add($Value)
+                        }
+                        ResetDataSource -ResetDataSourceData $AddResourceValue
+                    }  
+                }
+                break
+            }
+            "Computer name/IP address"
+            {
+                foreach ($AddResourceValue in $AddResourceValues)
+                {
+                    $TextBoxValue = $AddResourceTextBox.Text.replace(" ", "")
+                    switch -Wildcard ($TextBoxValue)
+                    {
+                        "*/*"   { # A forward slash indicates a subnet has been specified, the subnet is not being validated in this build.
+                                    if ($TextBoxValue -in $AddResourceValue.Items)
+                                    {
+                                        PopUpMessage -Message "$TextBoxValue is already in the list."
+                                        break
+                                    }
+                                    else
+                                    {
+                                        $AddResourceValue.DataSource.Add($TextBoxValue)
+                                        break
+                                    }
+                                }
+                        "*-*"   {
+                                    try
+                                    { # If each side of the hyphen is an IP address then a range has been specified
+                                        if ([ipaddress]$TextBoxValue.Split("-")[0] -and [ipaddress]$TextBoxValue.Split("-")[1])
+                                        { 
+                                            if ($TextBoxValue -in $AddResourceValue.Items)
+                                            {
+                                                PopUpMessage -Message "$TextBoxValue is already in the list."
                                                 break
                                             }
-            "Predefined set of computers"   {
-                                                foreach ($AddResourceValue in $AddResourceValues)
-                                                {
-                                                    if ($AddResourceComboBox2.SelectedValue -in $AddResourceValue.Items)
-                                                    {
-                                                        PopUpMessage -Message "`"$($AddResourceComboBox2.SelectedValue)`" is already in the list."
-                                                    }
-                                                    else
-                                                    {
-                                                        $AddResourceValue.DataSource.Add($AddResourceComboBox2.SelectedValue)
-                                                        $AddResourceTextBox.Text = $AddResourceComboBox2.SelectedValue
-                                                        ResetDataSource -ResetDataSourceData $AddResourceValue  
-                                                    }
-                                                }
+                                            else
+                                            {
+                                                $AddResourceValue.DataSource.Add($TextBoxValue)
                                                 break
                                             }
-            "Domain resource"               {
-                                                foreach ($Value in (Get-Variable -Name $AddResourceComboBox2.SelectedValue).Value)
-                                                {
-                                                    foreach ($AddResourceValue in $AddResourceValues)
-                                                    {
-                                                        if ($Value -in $AddResourceValue.Items)
-                                                        {
-                                                            PopUpMessage -Message "`"$Value`" is already in the list."
-                                                        }
-                                                        else
-                                                        {
-                                                            $AddResourceValue.DataSource.Add($Value)
-                                                        }
-                                                        ResetDataSource -ResetDataSourceData $AddResourceValue
-                                                    }  
-                                                }
-                                                break
-                                            }
-            "Computer name/IP address"      {
-                                                foreach ($AddResourceValue in $AddResourceValues)
-                                                {
-                                                    $TextBoxValue = $AddResourceTextBox.Text.replace(" ","")
-                                                    switch -Wildcard ($TextBoxValue)
-                                                    {
-                                                        "*/*"   { # A forward slash indicates a subnet has been specified, the subnet is not being validated in this build.
-                                                                    if ($TextBoxValue -in $AddResourceValue.Items)
-                                                                    {
-                                                                        PopUpMessage -Message "$TextBoxValue is already in the list."
-                                                                        break
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        $AddResourceValue.DataSource.Add($TextBoxValue)
-                                                                        break
-                                                                    }
-                                                                }
-                                                        "*-*"   {
-                                                                    try
-                                                                    { # If each side of the hyphen is an IP address then a range has been specified
-                                                                        if ([ipaddress]$TextBoxValue.Split("-")[0] -and [ipaddress]$TextBoxValue.Split("-")[1])
-                                                                        { 
-                                                                            if ($TextBoxValue -in $AddResourceValue.Items)
-                                                                            {
-                                                                                PopUpMessage -Message "$TextBoxValue is already in the list."
-                                                                                break
-                                                                            }
-                                                                            else
-                                                                            {
-                                                                                $AddResourceValue.DataSource.Add($TextBoxValue)
-                                                                                break
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                    catch [Management.Automation.PSInvalidCastException]
-                                                                    {
-                                                                        $IpAddresses = AttemptResolveDnsName -Name $TextBoxValue
-                                                                    }
-                                                                }
-                                                        default {
-                                                                    try
-                                                                    {
-                                                                        if ([ipaddress]$TextBoxValue)
-                                                                        {
-                                                                            $IpAddresses = $TextBoxValue
-                                                                        }
-                                                                    }
-                                                                    catch [Management.Automation.PSInvalidCastException]
-                                                                    {
-                                                                        $IpAddresses = AttemptResolveDnsName -Name $TextBoxValue
-                                                                    }
-                                                                }
-                                                    }
-                                                    if ($IpAddresses)
-                                                    {
-                                                        foreach ($IpAddress in $IpAddresses)
-                                                        {
-                                                            if ($IpAddress -in $AddResourceValue.Items)
-                                                            {
-                                                                PopUpMessage -Message "$IpAddress is already in the list."
-                                                            }
-                                                            else
-                                                            {
-                                                                $AddResourceValue.DataSource.Add($IpAddress)
-                                                            }
-                                                        }
-                                                    }
-                                                    ResetDataSource -ResetDataSourceData $AddResourceValue
-                                                }
-                                            }
+                                        }
+                                    }
+                                    catch [Management.Automation.PSInvalidCastException]
+                                    {
+                                        $IpAddresses = AttemptResolveDnsName -Name $TextBoxValue
+                                    }
+                                }
+                        default {
+                                    try
+                                    {
+                                        if ([ipaddress]$TextBoxValue)
+                                        {
+                                            $IpAddresses = $TextBoxValue
+                                        }
+                                    }
+                                    catch [Management.Automation.PSInvalidCastException]
+                                    {
+                                        $IpAddresses = AttemptResolveDnsName -Name $TextBoxValue
+                                    }
+                                }
+                    }
+                    if ($IpAddresses)
+                    {
+                        foreach ($IpAddress in $IpAddresses)
+                        {
+                            if ($IpAddress -in $AddResourceValue.Items)
+                            {
+                                PopUpMessage -Message "$IpAddress is already in the list."
+                            }
+                            else
+                            {
+                                $AddResourceValue.DataSource.Add($IpAddress)
+                            }
+                        }
+                    }
+                    ResetDataSource -ResetDataSourceData $AddResourceValue
+                }
+            }
         }
             foreach ($AddResourceValue in $AddResourceValues)
             {
@@ -571,40 +577,44 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
             BackColor = "WhiteSmoke"
             DropDownStyle = "DropDownList"
         }
-        $AddResourceComboBox1.DataSource = @("Computer name/IP address","Domain resource","Predefined set of computers","Any")
+        $AddResourceComboBox1.DataSource = @("Computer name/IP address", "Domain resource", "Predefined set of computers", "Any")
         $AddResourceComboBox1.Add_SelectedValueChanged(
         {
             switch ($AddResourceComboBox1.SelectedItem)
             {
-                "Any"                           {
-                                                    $AddResourcePanel.Controls.Remove($AddResourceTextBox)
-                                                    $AddResourcePanel.Controls.Remove($AddResourceComboBox2)
-                                                    $AddResourceStatusBar.Text = "Add `"Any IP address.`" "
-                                                    break
-                                                }
-                "Predefined set of computers"   {
-                                                    $AddResourceComboBox2.DataSource = "DefaultGateway","DHCP","DNS","Internet","Intranet","LocalSubnet"
-                                                    $AddResourcePanel.Controls.Remove($AddResourceTextBox)
-                                                    $AddResourcePanel.Controls.Add($AddResourceComboBox2)
-                                                    $AddResourceStatusBar.Text = "Select a predefined set of computers to add."
-                                                    $AddResourceTextBox.Focus()
-                                                    break
-                                                }
-                "Domain resource"               {
-                                                    $AddResourceComboBox2.DataSource = $Resources
-                                                    $AddResourcePanel.Controls.Remove($AddResourceTextBox)
-                                                    $AddResourcePanel.Controls.Add($AddResourceComboBox2)
-                                                    $AddResourceStatusBar.Text = "Select an existing domain resource to add."
-                                                    $AddResourceComboBox2.Focus()
-                                                    break
-                                                }
-                "Computer name/IP address"      {
-                                                    $AddResourceTextBox.Text = ""
-                                                    $AddResourcePanel.Controls.Remove($AddResourceComboBox2)
-                                                    $AddResourcePanel.Controls.Add($AddResourceTextBox)
-                                                    $AddResourceStatusBar.Text = "Enter a computer name or IP address to add."
-                                                    $AddResourceTextBox.Focus()
-                                                }
+                "Any"
+                {
+                    $AddResourcePanel.Controls.Remove($AddResourceTextBox)
+                    $AddResourcePanel.Controls.Remove($AddResourceComboBox2)
+                    $AddResourceStatusBar.Text = "Add `"Any IP address.`" "
+                    break
+                }
+                "Predefined set of computers"
+                {
+                    $AddResourceComboBox2.DataSource = "DefaultGateway", "DHCP", "DNS", "Internet", "Intranet", "LocalSubnet"
+                    $AddResourcePanel.Controls.Remove($AddResourceTextBox)
+                    $AddResourcePanel.Controls.Add($AddResourceComboBox2)
+                    $AddResourceStatusBar.Text = "Select a predefined set of computers to add."
+                    $AddResourceTextBox.Focus()
+                    break
+                }
+                "Domain resource"
+                {
+                    $AddResourceComboBox2.DataSource = $Resources
+                    $AddResourcePanel.Controls.Remove($AddResourceTextBox)
+                    $AddResourcePanel.Controls.Add($AddResourceComboBox2)
+                    $AddResourceStatusBar.Text = "Select an existing domain resource to add."
+                    $AddResourceComboBox2.Focus()
+                    break
+                }
+                "Computer name/IP address"
+                {
+                    $AddResourceTextBox.Text = ""
+                    $AddResourcePanel.Controls.Remove($AddResourceComboBox2)
+                    $AddResourcePanel.Controls.Add($AddResourceTextBox)
+                    $AddResourceStatusBar.Text = "Enter a computer name or IP address to add."
+                    $AddResourceTextBox.Focus()
+                }
             }
         })
         $AddResourceComboBox2 = New-Object -TypeName "System.Windows.Forms.ComboBox" -Property @{
@@ -651,22 +661,25 @@ function RemoveResource ($RemoveResourceProperty,$RemoveResourceDataObjects,$Rem
 
 function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
 {
-    if ($ChangeValueProperty -in "Enabled", "Direction","Action")
+    if ($ChangeValueProperty -in "Enabled", "Direction", "Action")
     {
         switch ($ChangeValueProperty)
         {
-            "Enabled"   { # 1 value (True/False)
-                            $Value1 = $true
-                            $Value2 = $false
-                        }
-            "Direction" { # 1 value (Inbound/Outbound)
-                            $Value1 = "Inbound"
-                            $Value2 = "Outbound"
-                        }
-            "Action"    { # 1 value (Allow/Block)
-                            $Value1 = "Allow"
-                            $Value2 = "Block"
-                        }
+            "Enabled"
+            { # 1 value (True/False)
+                $Value1 = $true
+                $Value2 = $false
+            }
+            "Direction"
+            { # 1 value (Inbound/Outbound)
+                $Value1 = "Inbound"
+                $Value2 = "Outbound"
+            }
+            "Action"
+            { # 1 value (Allow/Block)
+                $Value1 = "Allow"
+                $Value2 = "Block"
+            }
         }
         foreach ($ChangeValueDataObject in $ChangeValueDataObjects)
         {
@@ -680,7 +693,7 @@ function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
             }
         }
     }
-    elseif ($ChangeValueProperty -in  "Group","Profile","Protocol","Program","Package","Service")
+    elseif ($ChangeValueProperty -in  "Group", "Profile", "Protocol", "Program", "Package", "Service")
     {
         PopUpMessage -Message "Not available in this build."
     }
@@ -725,39 +738,47 @@ function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
             }
             switch ($ChangeValueProperty)
             {
-                "DisplayName"   { # 1 value
-                                    if ($ChangeValueTextBox.Text -eq "")
-                                    {
-                                        PopUpMessage -Message "DisplayName needs a value."
-                                    }
-                                    else
-                                    {
-                                        ChangeDataObject
-                                    }
-                                    break
-                                }
-                "Description"   { # 1 value or blank
-                                    ChangeDataObject
-                                    break
-                                }
-                "Group"         { # 1 value or blank
-                                    break
-                                }
-                "Profile"       { # 1 value, 2 values or any
-                                    break
-                                }
-                "Protocol"      { # Only supporting TCP and UDP in this build
-                                    break
-                                }
-                "Program"       { # 1 value or any
-                                    break
-                                }
-                "Package"       { # 1 value, any package or any
-                                    break
-                                }
-                "Service"       { # 1 value, any service or any
-                                    break
-                                }
+                "DisplayName"
+                { # 1 value
+                    if ($ChangeValueTextBox.Text -eq "")
+                    {
+                        PopUpMessage -Message "DisplayName needs a value."
+                    }
+                    else
+                    {
+                        ChangeDataObject
+                    }
+                    break
+                }
+                "Description"
+                { # 1 value or blank
+                    ChangeDataObject
+                    break
+                }
+                "Group"
+                { # 1 value or blank
+                    break
+                }
+                "Profile"
+                { # 1 value, 2 values or any
+                    break
+                }
+                "Protocol"
+                { # Only supporting TCP and UDP in this build
+                    break
+                }
+                "Program"
+                { # 1 value or any
+                    break
+                }
+                "Package"
+                { # 1 value, any package or any
+                    break
+                }
+                "Service"
+                { # 1 value, any service or any
+                    break
+                }
             }
         })
         $ChangeValueForm.CancelButton = $ChangeValueCancelButton
@@ -769,7 +790,7 @@ function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
                 Y= 5
             }
         }
-        if ($ChangeValueProperty -in "DisplayName","Description" -and $ChangeValueDataObjects.Count -eq 1)
+        if ($ChangeValueProperty -in "DisplayName", "Description" -and $ChangeValueDataObjects.Count -eq 1)
         {
             $ChangeValueTextBox.Text = $ChangeValueDataObjects.Value
         }
@@ -783,7 +804,7 @@ function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
             Width = $ChangeValueForm.Width - 16
             Height = $ChangeValueForm.Height - 82
         }
-        if ($ChangeValueProperty -in "DisplayName","Description")
+        if ($ChangeValueProperty -in "DisplayName", "Description")
         {
             $ChangeValuePanel.Controls.Add($ChangeValueTextBox)
         }
@@ -862,7 +883,7 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
                 ResourceSelection -ResourceSelectionData ((Get-GPO -All).DisplayName| Sort-Object) -ResourceSelectionStatusBarText $Language[23] -CurrentForm $ReviewAndSaveForm
                 if ($SelectedItems)
                 {
-                    $Commands.Insert(0, "`$GpoSession = Open-NetGPO -PolicyStore `"$DomainName\$(($SelectedItems -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$'))`"")
+                    $Commands.Insert(0, "`$GpoSession = Open-NetGPO -PolicyStore `"$DomainName\$(($SelectedItems -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$'))`"")
                     $Commands.Add("Save-NetGPO -GPOSession `$GpoSession")
                     UpdateGroupPolicyObject
                 }
@@ -904,7 +925,7 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
     {
         $ChangesFound = $false
         $Commands = New-Object -TypeName "System.Collections.ArrayList"
-        $Commands.Add("`$GpoSession = Open-NetGPO -PolicyStore `"$(($WindowsFirewallRules[0].PolicyStore -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$'))`"")
+        $Commands.Add("`$GpoSession = Open-NetGPO -PolicyStore `"$(($WindowsFirewallRules[0].PolicyStore -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$'))`"")
         foreach ($SelectedIndex in $SelectedIndices)
         {
             $NewLine = $true
@@ -916,11 +937,11 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
                     {
                         $ChangesFound = $true
                         $NewLine = $false
-                        $EscapedName = ($WindowsFirewallRulesClone[$SelectedIndex].Name -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$')
+                        $EscapedName = ($WindowsFirewallRulesClone[$SelectedIndex].Name -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$')
                         $Index = $Commands.Add("Set-NetFirewallRule -GPOSession `$GpoSession -Name `"$EscapedName`"")
                     }
-                    $EscapedValue = (($WindowsFirewallRules[$SelectedIndex].$PropertyName -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$') -join '","')
-                    $Commands[$Index] = $Commands[$Index] + " -" + $PropertyName.Replace("DisplayName","NewDisplayName") + (" `"$EscapedValue`"")
+                    $EscapedValue = (($WindowsFirewallRules[$SelectedIndex].$PropertyName -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$') -join '", "')
+                    $Commands[$Index] = $Commands[$Index] + " -" + $PropertyName.Replace("DisplayName", "NewDisplayName") + (" `"$EscapedValue`"")
                 }
             }
         }
@@ -940,16 +961,16 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
         foreach ($WindowsFirewallRule in $WindowsFirewallRules)
         {
             $Index = $Commands.Add("New-NetFirewallRule -GPOSession `$GpoSession")
-            foreach ($PropertyName in "Name","DisplayName")
+            foreach ($PropertyName in "Name", "DisplayName")
             { # These properties are always needed
-                $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$') -join '","')
+                $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$') -join '", "')
                 $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$EscapedValue`""
             }
-            foreach ($PropertyName in "Description","Group","Platform","Owner")
+            foreach ($PropertyName in "Description", "Group", "Platform", "Owner")
             {
                 if ($WindowsFirewallRule.$PropertyName)
                 { # These properties are added if they have a value
-                    $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$') -join '","')
+                    $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$') -join '", "')
                     $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$EscapedValue`""
                 }
             }
@@ -957,11 +978,11 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
             { # This property is added if it's not the default
                 $Commands[$Index] = $Commands[$Index] + " -Enabled $false" 
             }
-            foreach ($PropertyName in "Profile","RemoteAddress","LocalAddress","Program","Package","Protocol","LocalPort","RemotePort","IcmpType","DynamicTarget","Service")
+            foreach ($PropertyName in "Profile", "RemoteAddress", "LocalAddress", "Program", "Package", "Protocol", "LocalPort", "RemotePort", "IcmpType", "DynamicTarget", "Service")
             {
                 if ($WindowsFirewallRule.$PropertyName -and $WindowsFirewallRule.$PropertyName -ne "Any")
                 { # These properties are added if they are not the default
-                    $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$') -join '","')
+                    $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$') -join '", "')
                     $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$EscapedValue`""
                 }
             }
@@ -977,7 +998,7 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
             { # This property is added if it's not the default
                 $Commands[$Index] = $Commands[$Index] + " -EdgeTraversalPolicy `"Allow`"" 
             }
-            foreach ($PropertyName in "LooseSourceMapping","LocalOnlyMapping")
+            foreach ($PropertyName in "LooseSourceMapping", "LocalOnlyMapping")
             {
                 if ($WindowsFirewallRule.$PropertyName -eq $true)
                 { # These properties are added if they are not the default
@@ -1039,18 +1060,25 @@ function EditFirewallRules
         {
             $EditFirewallRulesDataGridViewRemoveButton.Visible = $false
             $EditFirewallRulesDataGridViewAddButton.Visible = $false
+            $EditFirewallRulesDataGridViewNsLookupButton.Visible = $false
             $EditFirewallRulesDataGridViewChangeButton.Visible = $false
         }
-        elseif ($EditFirewallRulesDataGridView.CurrentCell.OwningColumn.Name -in "LocalAddress","RemoteAddress","LocalPort","RemotePort")
+        elseif ($EditFirewallRulesDataGridView.CurrentCell.OwningColumn.Name -in "LocalAddress", "RemoteAddress", "LocalPort", "RemotePort")
         {
             $EditFirewallRulesDataGridViewRemoveButton.Visible = $true
             $EditFirewallRulesDataGridViewAddButton.Visible = $true
+            $EditFirewallRulesDataGridViewNsLookupButton.Visible = $false
             $EditFirewallRulesDataGridViewChangeButton.Visible = $false
+            if ($EditFirewallRulesDataGridView.CurrentCell.OwningColumn.Name -in "LocalAddress", "RemoteAddress" -and $EditFirewallRulesDataGridView.CurrentCell.Value -notin "Any", "DefaultGateway", "DHCP", "DNS", "Internet", "Intranet", "LocalSubnet")
+            {
+                $EditFirewallRulesDataGridViewNsLookupButton.Visible = $true
+            }
         }
         else
         {
             $EditFirewallRulesDataGridViewRemoveButton.Visible = $false
             $EditFirewallRulesDataGridViewAddButton.Visible = $false
+            $EditFirewallRulesDataGridViewNsLookupButton.Visible = $false
             $EditFirewallRulesDataGridViewChangeButton.Visible = $true
         }
         if ($EditFirewallRulesDataGridView.SelectedCells.Count -lt 2)
@@ -1074,7 +1102,7 @@ function EditFirewallRules
     {
         if ($PropertyName -ne "PolicyStore" -and $PropertyName -ne "Name")
         {
-            if ($PropertyName -in "DisplayName","Description","Group","Enabled","Direction","Action","Protocol","Program","Package","Service")
+            if ($PropertyName -in "DisplayName", "Description", "Group", "Enabled", "Direction", "Action", "Protocol", "Program", "Package", "Service")
             {
                 $EditFirewallRulesDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewTextBoxColumn" -Property @{
                     ReadOnly = $true
@@ -1105,7 +1133,7 @@ function EditFirewallRules
         }
     }) -Scope 2 -Force
     New-Variable -Name "EditFirewallRulesDataGridViewRemoveButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
-        Text = "Remove"
+        Text = $Language[28]
         Anchor = "Right"
     }) -Scope 2 -Force
     $EditFirewallRulesDataGridViewRemoveButton.Left = $EditFirewallRulesDataGridViewButtonPanel.Width - $EditFirewallRulesDataGridViewRemoveButton.Width - 16
@@ -1117,6 +1145,10 @@ function EditFirewallRules
             Dock = "Fill"
             SelectionMode = "MultiExtended"
             }
+        $SelectItemsToRemoveListBox.Add_KeyDown(
+        {
+            SelectAll -Control $SelectItemsToRemoveListBox
+        })
         foreach ($SelectedCell in $EditFirewallRulesDataGridView.SelectedCells)
         {
             foreach ($Item in $SelectedCell.Items)
@@ -1138,6 +1170,14 @@ function EditFirewallRules
                     Height = 100
                 }
             }
+            $SelectItemsToRemoveForm.Add_Closing(
+            {
+                if ($SelectItemsToRemoveListBox.SelectedItems.Count -eq 0 -and $SelectItemsToRemoveForm.DialogResult -eq "OK")
+                {
+                    $_.Cancel = $true
+                    PopUpMessage -Message $Language[33]
+                }
+            })
             $SelectItemsToRemoveForm.Add_Shown(
             {
                 $SelectItemsToRemoveForm.Focus()
@@ -1183,7 +1223,7 @@ function EditFirewallRules
         }
     })
     New-Variable -Name "EditFirewallRulesDataGridViewAddButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
-        Text = "Add"
+        Text = $Language[29]
         Anchor = "Right"
     }) -Scope 2 -Force
     $EditFirewallRulesDataGridViewAddButton.Left = $EditFirewallRulesDataGridViewRemoveButton.Left - $EditFirewallRulesDataGridViewAddButton.Width - 5
@@ -1191,8 +1231,25 @@ function EditFirewallRules
     {
         AddResource -AddResourceProperty $EditFirewallRulesDataGridView.CurrentCell.OwningColumn.Name -AddResourceValues $EditFirewallRulesDataGridView.SelectedCells
     })
+    New-Variable -Name "EditFirewallRulesDataGridViewNsLookupButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
+        Text = $Language[30]
+        Anchor = "Right"
+    }) -Scope 2 -Force
+    $EditFirewallRulesDataGridViewNsLookupButton.Left = $EditFirewallRulesDataGridViewAddButton.Left - $EditFirewallRulesDataGridViewNsLookupButton.Width - 5
+    $EditFirewallRulesDataGridViewNsLookupButton.Add_Click(
+    {
+        $NameHost = (Resolve-DnsName -Name $EditFirewallRulesDataGridView.CurrentCell.Value -ErrorAction SilentlyContinue).NameHost
+        if ($NameHost)
+        {
+            PopUpMessage -Message $NameHost
+        }
+        else
+        {
+            PopUpMessage -Message $Language[32]
+        }
+    })
     New-Variable -Name "EditFirewallRulesDataGridViewChangeButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
-        Text = "Change"
+        Text = $Language[31]
         Anchor = "Right"
         Visible = $false
     }) -Scope 2 -Force
@@ -1202,8 +1259,9 @@ function EditFirewallRules
         ChangeValue -ChangeValueProperty $EditFirewallRulesDataGridView.CurrentCell.OwningColumn.Name -ChangeValueDataObjects $EditFirewallRulesDataGridView.SelectedCells
     })
     $EditFirewallRulesDataGridViewButtonPanel.Controls.Add($EditFirewallRulesDataGridViewRemoveButton)
-    $EditFirewallRulesDataGridViewButtonPanel.Controls.Add($EditFirewallRulesDataGridViewChangeButton)
     $EditFirewallRulesDataGridViewButtonPanel.Controls.Add($EditFirewallRulesDataGridViewAddButton)
+    $EditFirewallRulesDataGridViewButtonPanel.Controls.Add($EditFirewallRulesDataGridViewNsLookupButton)
+    $EditFirewallRulesDataGridViewButtonPanel.Controls.Add($EditFirewallRulesDataGridViewChangeButton)
     $EditFirewallRulesDataGridViewPanel.Controls.Add($EditFirewallRulesDataGridView)
     $EditFirewallRulesDataGridViewPanel.Controls.Add($EditFirewallRulesDataGridViewButtonPanel)
 }
@@ -1649,14 +1707,14 @@ function EditExistingFirewallRulesPage
                     Description = $EditExistingFirewallRulesRule.Description
                     Group = $EditExistingFirewallRulesRule.Group
                     Enabled = $EditExistingFirewallRulesRule.Enabled
-                    Profile = @(($EditExistingFirewallRulesRule.Profile).Tostring().Replace(",","").Split())
+                    Profile = @(($EditExistingFirewallRulesRule.Profile).Tostring().Replace(", ", "").Split())
                     Direction = $EditExistingFirewallRulesRule.Direction
                     Action = $EditExistingFirewallRulesRule.Action
                     LocalAddress = @(($EditExistingFirewallRulesRule| Get-NetFirewallAddressFilter -GPOSession $GpoSession).LocalAddress)
                     RemoteAddress = @(($EditExistingFirewallRulesRule| Get-NetFirewallAddressFilter -GPOSession $GpoSession).RemoteAddress)
                     Protocol = ($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).Protocol
-                    LocalPort = @((($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).LocalPort).Replace("RPC","135"))
-                    RemotePort = @((($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).RemotePort).Replace("RPC","135").Replace("IPHTTPS","443"))
+                    LocalPort = @((($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).LocalPort).Replace("RPC", "135"))
+                    RemotePort = @((($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).RemotePort).Replace("RPC", "135").Replace("IPHTTPS", "443"))
                     Program = ($EditExistingFirewallRulesRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Program
                     Package = ($EditExistingFirewallRulesRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Package
                     Service = ($EditExistingFirewallRulesRule| Get-NetFirewallServiceFilter -GPOSession $GPOSession).Service
@@ -1991,18 +2049,18 @@ function ScanComputerForBlockedConnectionsPage
                 }
                 $ProgramData = (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                     $env:ProgramData
-                }).Replace("\","\\")
+                }).Replace("\", "\\")
                 $ProgramFiles = (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                     $env:ProgramFiles
-                }).Replace("\","\\")
+                }).Replace("\", "\\")
                 $ProgramFilesX86 = (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                     ${env:ProgramFiles(x86)}
-                }).Replace("\","\\")
+                }).Replace("\", "\\")
                 $SystemRoot = (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                     $env:SystemRoot
-                }).Replace("\","\\")
+                }).Replace("\", "\\")
                 [array]$AdHarvest = Invoke-Command -Session $ComputerPsSession -ScriptBlock {
-                    (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\iphlpsvc\Parameters\ADHarvest\" -Name "LastFetchContents").LastFetchContents.Split(",")
+                    (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\iphlpsvc\Parameters\ADHarvest\" -Name "LastFetchContents").LastFetchContents.Split(", ")
                 } # Not currently used
                 [NetworkConnection[]]$NetworkConnections = @()
                 $EventCount = 1
@@ -2105,23 +2163,23 @@ function ScanComputerForBlockedConnectionsPage
                     {
                         $FilteredNetworkConnection.Service = @(($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).Name)
                     }
-                    $FilteredNetworkConnection.Protocol = $FilteredNetworkConnection.Protocol -replace "^1$","ICMPv4" -replace "^6$","TCP" -replace "^17$","UDP" -replace "^58$","ICMPv6"
+                    $FilteredNetworkConnection.Protocol = $FilteredNetworkConnection.Protocol -replace "^1$", "ICMPv4" -replace "^6$", "TCP" -replace "^17$", "UDP" -replace "^58$", "ICMPv6"
                     If ($FilteredNetworkConnection.Application -ne "System" -and $FilteredNetworkConnection.Application -notlike "\device\*")
                     {
-                        if ($FilteredNetworkConnection.Application -eq "$($SystemRoot.Replace("\\","\"))\System32\svchost.exe")
+                        if ($FilteredNetworkConnection.Application -eq "$($SystemRoot.Replace("\\", "\"))\System32\svchost.exe")
                         {
-                            $FilteredNetworkConnection.DisplayName = "SVCHOST $(($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).DisplayName) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound","Out").Replace("Inbound","In") + ")"
+                            $FilteredNetworkConnection.DisplayName = "SVCHOST $(($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).DisplayName) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound", "Out").Replace("Inbound", "In") + ")"
                         }
                         elseif ($ApplicationFileDescription.($FilteredNetworkConnection.Application))
                         {
-                            $FilteredNetworkConnection.DisplayName = "$($ApplicationFileDescription.($FilteredNetworkConnection.Application)) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound","Out").Replace("Inbound","In") + ")"
+                            $FilteredNetworkConnection.DisplayName = "$($ApplicationFileDescription.($FilteredNetworkConnection.Application)) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound", "Out").Replace("Inbound", "In") + ")"
                         }
                         else
                         {
                             $ApplicationFileDescription.($FilteredNetworkConnection.Application) = Invoke-Command -Session $ComputerPsSession -ScriptBlock {(Get-Item $args[0]).VersionInfo.FileDescription} -ArgumentList $FilteredNetworkConnection.Application
-                            $FilteredNetworkConnection.DisplayName = "$($ApplicationFileDescription.($FilteredNetworkConnection.Application)) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound","Out").Replace("Inbound","In") + ")"
+                            $FilteredNetworkConnection.DisplayName = "$($ApplicationFileDescription.($FilteredNetworkConnection.Application)) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound", "Out").Replace("Inbound", "In") + ")"
                         }
-                        $FilteredNetworkConnection.Application = $FilteredNetworkConnection.Application -replace $ProgramData,"%ProgramData%" -replace $ProgramFiles,"%ProgramFiles%" -replace $ProgramFilesX86,"%ProgramFiles% (x86)" -replace $SystemRoot,"%SystemRoot%"
+                        $FilteredNetworkConnection.Application = $FilteredNetworkConnection.Application -replace $ProgramData, "%ProgramData%" -replace $ProgramFiles, "%ProgramFiles%" -replace $ProgramFilesX86, "%ProgramFiles% (x86)" -replace $SystemRoot, "%SystemRoot%"
                         if ($PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)")
                         {
                             $FilteredNetworkConnection.Notes = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[1]
@@ -2131,12 +2189,12 @@ function ScanComputerForBlockedConnectionsPage
                     {
                         if ($PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)")
                         {
-                            $FilteredNetworkConnection.DisplayName = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[0] + " (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound","Out").Replace("Inbound","In") + ")"
+                            $FilteredNetworkConnection.DisplayName = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[0] + " (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound", "Out").Replace("Inbound", "In") + ")"
                             $FilteredNetworkConnection.Notes = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[1]
                         }
                         else
                         {
-                            $FilteredNetworkConnection.DisplayName = "Port " + $FilteredNetworkConnection.DestPort + " (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound","Out").Replace("Inbound","In") + ")"
+                            $FilteredNetworkConnection.DisplayName = "Port " + $FilteredNetworkConnection.DestPort + " (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound", "Out").Replace("Inbound", "In") + ")"
                         }
                     }
                 }
@@ -2164,7 +2222,7 @@ function ScanComputerForBlockedConnectionsPage
             }
             catch [System.Management.Automation.RuntimeException]
             {
-                if ($error[0].Exception.Message -in "Connectivity test aborted, scanning cancelled.","Waiting for scan job to complete aborted.","DNS name does not exist")
+                if ($error[0].Exception.Message -in "Connectivity test aborted, scanning cancelled.", "Waiting for scan job to complete aborted.", "DNS name does not exist")
                 {
                 }
                 elseif ($error[0].Exception.Message -eq "Connectivity test failed.")
@@ -2210,8 +2268,8 @@ function ScanComputerForBlockedConnectionsPage
             {
                 if ($ScanComputerForBlockedConnectionsRule.Direction -eq "Inbound")
                 {
-                    $LocalAddress = @($ScanComputerForBlockedConnectionsRule.DestAddress)
-                    $RemoteAddress = @("LocalSubnet","Intranet")
+                    $LocalAddress = @("Any")
+                    $RemoteAddress = @($ScanComputerForBlockedConnectionsRule.DestAddress)
                     $LocalPort = @($ScanComputerForBlockedConnectionsRule.DestPort)
                     $RemotePort = @("Any")
                 }
@@ -2344,7 +2402,7 @@ function ScanComputerForBlockedConnectionsPage
     $EmptyNetworkConnection = New-Object -TypeName "NetworkConnection"
     foreach ($PropertyName in ($EmptyNetworkConnection.PsObject.Properties).name)
     {
-        if ($PropertyName -in "ProcessId","DisplayName","Application","Direction","SourceAddress","SourcePort","DestAddress","DestPort","Protocol","Notes")
+        if ($PropertyName -in "ProcessId", "DisplayName", "Application", "Direction", "SourceAddress", "SourcePort", "DestAddress", "DestPort", "Protocol", "Notes")
         {
             $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert($ColumnIndex, (New-Object -TypeName "System.Windows.Forms.DataGridViewTextBoxColumn" -Property @{
                 ReadOnly = $true
@@ -2464,22 +2522,22 @@ function ExportExistingRulesToPowerShellCommandsPage
                 $Command = @"
 New-NetFirewallRule -GPOSession `$GPOSession
 "@
-                $Value = ($FirewallRule.Name  -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$')
+                $Value = ($FirewallRule.Name  -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$')
                 $Command += @"
  -Name "$Value"
 "@
-                $Value = ($FirewallRule.DisplayName  -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$')
+                $Value = ($FirewallRule.DisplayName  -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$')
                 $Command += @"
  -DisplayName "$Value"
 "@
-                $Value = ($FirewallRule.Description  -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$')
+                $Value = ($FirewallRule.Description  -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$')
                 if ($Value -ne $null)
                 {
                     $Command += @"
  -Description "$Value"
 "@
                 }
-                $Value = ($FirewallRule.Group  -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$')
+                $Value = ($FirewallRule.Group  -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$')
                 if ($Value -ne $null)
                 {
                     $Command += @"
@@ -2503,7 +2561,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
                 $Value = $FirewallRule.Platform
                 if($Value -ne $null)
                 {
-                    $Value = $Value -join '","'
+                    $Value = $Value -join '", "'
                     $Command += @"
  -Platform "$Value"
 "@
@@ -2553,7 +2611,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
                 $Value = ($FirewallRule| Get-NetFirewallAddressFilter -GPOSession $GPOSession).RemoteAddress
                 if ($Value -ne "Any")
                 {
-                    $Value = $Value -join '","'
+                    $Value = $Value -join '", "'
                     $Command += @"
  -RemoteAddress "$Value"
 "@
@@ -2561,19 +2619,19 @@ New-NetFirewallRule -GPOSession `$GPOSession
                 $Value = ($FirewallRule| Get-NetFirewallAddressFilter -GPOSession $GPOSession).LocalAddress
                 if ($Value -ne "Any")
                 {
-                    $Value = $Value -join '","'
+                    $Value = $Value -join '", "'
                     $Command += @"
  -LocalAddress "$Value"
 "@
                 }
-                $Value = (($FirewallRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Program  -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$')
+                $Value = (($FirewallRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Program  -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$')
                 if ($Value -ne "Any")
                 {
                     $Command += @"
  -Program "$Value"
 "@
                 } 
-                $Value = (($FirewallRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Package  -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$')
+                $Value = (($FirewallRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Package  -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$')
                 if ($Value -ne $null)
                 {
                     $Command += @"
@@ -2590,7 +2648,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
                 $Value = ($FirewallRule| Get-NetFirewallPortFilter -GPOSession $GPOSession).LocalPort
                 if ($Value -ne "Any")
                 {
-                    $Value = $Value -join '","'
+                    $Value = $Value -join '", "'
                     $Command += @"
  -LocalPort "$Value"
 "@
@@ -2598,7 +2656,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
                 $Value = ($FirewallRule| Get-NetFirewallPortFilter -GPOSession $GPOSession).RemotePort
                 if ($Value -ne "Any")
                 {
-                    $Value = $Value -join '","'
+                    $Value = $Value -join '", "'
                     $Command += @"
  -RemotePort "$Value"
 "@
@@ -2606,7 +2664,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
                 $Value = ($FirewallRule| Get-NetFirewallPortFilter -GPOSession $GPOSession).IcmpType
                 if ($Value -ne "Any")
                 {
-                    $Value = $Value -join '","'
+                    $Value = $Value -join '", "'
                     $Command += @"
  -IcmpType "$Value"
 "@
@@ -2618,7 +2676,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
  -DynamicTarget "$Value"
 "@
                 }         
-                $Value = (($FirewallRule| Get-NetFirewallServiceFilter -GPOSession $GPOSession).Service  -replace '`','``' -replace "'","``'" -replace '"','`"').Replace('$','`$')
+                $Value = (($FirewallRule| Get-NetFirewallServiceFilter -GPOSession $GPOSession).Service  -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$')
                 if ($Value -ne "Any")
                 {
                     $Command += @"
@@ -2843,13 +2901,13 @@ function MainThread
 }
 
 $EnglishPortData = @{
-"0-ICMPv4" = "Echo request","TBA"
-"0-ICMPv6" = "Echo request","TBA"
-"22-TCP" = "SSH","Can be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses."
-"67-UDP" = "DHCP request","Clients broadcast DHCP requests, inbound requests only need to be allowed on DHCP servers."
-"80-TCP" = "HTTP","Unsecured web service, consider using secure HTTPS.`r`nCan be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses."
-"443-TCP" = "HTTPS","Can be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses."
-"445-TCP" = "SMB","File sharing, can be used to exfiltrate data and should not be used to the Internet.`r`nClients should only accept inbound connections from tier management resources.`r`nCan be used by malware compromise computers across the network."
+"0-ICMPv4" = "Echo request", "TBA"
+"0-ICMPv6" = "Echo request", "TBA"
+"22-TCP" = "SSH", "Can be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses."
+"67-UDP" = "DHCP request", "Clients broadcast DHCP requests, inbound requests only need to be allowed on DHCP servers."
+"80-TCP" = "HTTP", "Unsecured web service, consider using secure HTTPS.`r`nCan be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses."
+"443-TCP" = "HTTPS", "Can be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses."
+"445-TCP" = "SMB", "File sharing, can be used to exfiltrate data and should not be used to the Internet.`r`nClients should only accept inbound connections from tier management resources.`r`nCan be used by malware compromise computers across the network."
 }
 
 $English = @(
@@ -2881,10 +2939,23 @@ $English = @(
 "Select"
 "Exit"
 "Select the service to be used for $($ScanComputerForBlockedConnectionsRule.DisplayName)."
+"Remove"
+"Add"
+"NsLookup"
+"Change"
+"Host name not found."
+"Nothing selected."
 )
 
-$Language = $English
-$PortData = $EnglishPortData
+switch -Wildcard ((Get-UICulture).Name)
+{
+    "en-*"
+    {
+        $Language = $English
+        $PortData = $EnglishPortData
+        break
+    }
+}
 
 if ((Get-Host).Name -eq "ServerRemoteHost" -or $PSVersionTable.PSEdition -eq "Core")
 {
