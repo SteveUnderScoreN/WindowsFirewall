@@ -355,27 +355,27 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
             {
                 function AddResourceValue
                 {
-                        foreach ($AddResourceValue in $AddResourceValues)
+                    foreach ($AddResourceValue in $AddResourceValues)
+                    {
+                        if ($TextBoxValue -in $AddResourceValue.Items)
                         {
-                            if ($TextBoxValue -in $AddResourceValue.Items)
-                            {
-                                PopUpMessage -Message "`"$($TextBoxValue)`" is already in the list."
-                            }
-                            else
-                            {
-                                $AddResourceValue.DataSource.Add($TextBoxValue)
-                                ResetDataSource -ResetDataSourceData $AddResourceValue
-                            }
+                            PopUpMessage -Message "`"$($TextBoxValue)`" is already in the list."
                         }
-                        foreach ($AddResourceValue in $AddResourceValues)
+                        else
                         {
-                            if ("Any" -in $AddResourceValue.Items -and $AddResourceValue.Items.Count -gt 1)
-                            {
-                                $AddResourceValue.DataSource.Remove("Any")
-                                ResetDataSource -ResetDataSourceData $AddResourceValue
-                            }
+                            $AddResourceValue.DataSource.Add($TextBoxValue)
+                            ResetDataSource -ResetDataSourceData $AddResourceValue
                         }
                     }
+                    foreach ($AddResourceValue in $AddResourceValues)
+                    {
+                        if ("Any" -in $AddResourceValue.Items -and $AddResourceValue.Items.Count -gt 1)
+                        {
+                            $AddResourceValue.DataSource.Remove("Any")
+                            ResetDataSource -ResetDataSourceData $AddResourceValue
+                        }
+                    }
+                }
                 try
                 {
                     $TextBoxValue = $AddResourceTextBox.Text.replace(" ", "")
