@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.5
+    Build 1809.6
 #>
 
 class WindowsFirewallRule
@@ -46,7 +46,7 @@ class WindowsFirewallRule
     
 function DefaultDomainResources
 {
-    [System.Collections.ArrayList]$Script:Resources = "DomainControllers", "ProxyServers", "DnsServers", "CrlServers", "Wpad_PacFileServers", "TierXManagementServers", "SqlServers", "WebServers", "FileServers", "KeyManagementServers", "BackupServers", "ClusteredNodesAndManagementAddresses", "ExternalVpnEndpoints", "DirectAccessServers", "TrustedDhcpSubnets", "ServerRoleAdministrationServers"| Sort-Object
+    [System.Collections.ArrayList]$Script:Resources = "DomainControllers", "ProxyServers", "DnsServers", "CrlServers", "Wpad_PacFileServers", "TierXManagementServers", "SqlServers", "WebServers", "FileServers", "KeyManagementServers", "BackupServers", "ClusteredNodesAndManagementAddresses", "ExternalVpnEndpoints", "DirectAccessServers", "TrustedDhcpSubnets", "ServerRoleAdministrationServers", "MicrosoftSubnets"| Sort-Object
     foreach ($Resource in $Resources)
     {
         New-Variable -Name $Resource -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script"
@@ -73,6 +73,9 @@ function DefaultDomainResources
     # Version 0.8.0 domain resources
     [System.Collections.ArrayList]$Script:ServerRoleAdministrationServers += "LocalSubnet", "Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
     # END of version 0.8.0 domain resources
+    # Version 0.9.0 domain resources
+    [System.Collections.ArrayList]$Script:MicrosoftSubnets += "13.64.0.0 - 13.107.255.255", "40.74.0.0 - 40.125.127.255", "52.145.0.0 - 52.191.255.255", "64.4.0.0 - 64.4.63.255", "65.52.0.0 - 65.55.255.255", "104.40.0.0 - 104.47.255.255", "111.221.64.0 - 111.221.127.255", "131.253.61.0 - 131.253.255.255", "134.170.0.0 - 134.170.255.255", "137.117.0.0 - 137.117.255.255", "157.54.0.0 - 157.60.255.255", "207.46.0.0 - 207.46.255.255"
+    # END of version 0.9.0 domain resources
     [System.Collections.ObjectModel.ObservableCollection[Object]]$Script:ResourcesAndProxyPorts = $Resources + "ProxyServerPorts"| Sort-Object
 }
 
@@ -254,13 +257,22 @@ function SelectAll ($Control)
     }
 }
 
-function ResetDataSource ($ResetDataSourceData) # The data object is a combobox cell
-{   
-    $ResetDataSourceData.Value = $ResetDataSourceData.DataSource| Select-Object -Last 1
-    $ResetDataSourceDataSource = $ResetDataSourceData.DataSource
-    $ResetDataSourceData.DataSource = [System.Collections.ArrayList]@($ResetDataSourceData.Value) # Rather than setting the data source to $null set it to a temporary valid value to prevent errors
-    $ResetDataSourceData.DataSource = $ResetDataSourceDataSource
-    $ResetDataSourceData.DropDownWidth = (($ResetDataSourceData.DataSource).Length| Sort-Object -Descending| Select-Object -First 1) * 7
+function ResetDataSource ($ResetDataSourceData) # The data object can be a combobox cell or a listbox
+{ 
+    $ResetDataSourceDataSource = $ResetDataSourceData.DataSource  
+    if ($ResetDataSourceData.Value)
+    {
+        $ResetDataSourceData.Value = $ResetDataSourceData.DataSource| Select-Object -Last 1
+        $ResetDataSourceData.DataSource = [System.Collections.ArrayList]@($ResetDataSourceData.Value) # Rather than setting the data source to $null set it to a temporary valid value to prevent errors
+        $ResetDataSourceData.DataSource = $ResetDataSourceDataSource
+        #$ResetDataSourceData.Value = $ResetDataSourceData.DataSource| Select-Object -Last 1
+        $ResetDataSourceData.DropDownWidth = (($ResetDataSourceData.DataSource).Length| Sort-Object -Descending| Select-Object -First 1) * 7
+    }
+    else
+    {
+        $ResetDataSourceData.DataSource = $null
+        $ResetDataSourceData.DataSource = $ResetDataSourceDataSource
+    }
 }
 
 function AddResource ($AddResourceProperty,$AddResourceValues)
@@ -438,11 +450,27 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
     {
         $AddResourceAcceptButton.Add_Click(
         {
-            switch ($AddResourceComboBox1.SelectedItem)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                        {
+            switch ($AddResourceComboBox1.SelectedItem)                                                                                                                                                                                                                                                                                                                                                                                                                {
             "Any"
             {
                 AnyResource
+                break
+            }
+            "Microsoft subnets"
+            {
+                foreach ($AddResourceValue in $AddResourceValues)
+                {
+                    if ($AddResourceComboBox2.SelectedValue -in $AddResourceValue.Items)
+                    {
+                        PopUpMessage -Message "`"$($AddResourceComboBox2.SelectedValue)`" is already in the list."
+                    }
+                    else
+                    {
+                        $AddResourceValue.DataSource.Add($AddResourceComboBox2.SelectedValue)
+                        $AddResourceTextBox.Text = $AddResourceComboBox2.SelectedValue
+                        ResetDataSource -ResetDataSourceData $AddResourceValue  
+                    }
+                }
                 break
             }
             "Predefined set of computers"
@@ -572,7 +600,7 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
             BackColor = "WhiteSmoke"
             DropDownStyle = "DropDownList"
         }
-        $AddResourceComboBox1.DataSource = @("Computer name/IP address", "Domain resource", "Predefined set of computers", "Any")
+        $AddResourceComboBox1.DataSource = @("Computer name/IP address", "Domain resource", "Predefined set of computers", "Microsoft subnets", "Any")
         $AddResourceComboBox1.Add_SelectedValueChanged(
         {
             switch ($AddResourceComboBox1.SelectedItem)
@@ -582,6 +610,15 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
                     $AddResourcePanel.Controls.Remove($AddResourceTextBox)
                     $AddResourcePanel.Controls.Remove($AddResourceComboBox2)
                     $AddResourceStatusBar.Text = "Add `"Any IP address.`" "
+                    break
+                }
+                "Microsoft subnets"
+                {
+                    $AddResourceComboBox2.DataSource = $MicrosoftSubnets
+                    $AddResourcePanel.Controls.Remove($AddResourceTextBox)
+                    $AddResourcePanel.Controls.Add($AddResourceComboBox2)
+                    $AddResourceStatusBar.Text = "Select an Microsoft subnet to add."
+                    $AddResourceComboBox2.Focus()
                     break
                 }
                 "Predefined set of computers"
@@ -640,7 +677,10 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
 
 function RemoveResource ($RemoveResourceProperty,$RemoveResourceDataObjects,$RemoveResourceSelectedItems)
 {
-    $RemoveResourceDataObjects[0].DataGridView.BeginEdit($true) # Required to reset the selected index in the GUI
+    if ($RemoveResourceDataObjects[0].DataGridView)
+    {
+        $RemoveResourceDataObjects[0].DataGridView.BeginEdit($true) # Required to reset the selected index in the GUI
+    }
     foreach ($RemoveResourceDataObject in $RemoveResourceDataObjects)
     {
         foreach ($RemoveResourceSelectedItem in $RemoveResourceSelectedItems)
@@ -653,7 +693,10 @@ function RemoveResource ($RemoveResourceProperty,$RemoveResourceDataObjects,$Rem
         }
         ResetDataSource -ResetDataSourceData $RemoveResourceDataObject
     }
-    $RemoveResourceDataObjects[0].DataGridView.EndEdit()
+    if ($RemoveResourceDataObjects[0].DataGridView)
+    {
+        $RemoveResourceDataObjects[0].DataGridView.EndEdit()
+    }
 }
 
 function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
@@ -1090,9 +1133,10 @@ function EditFirewallRules
         }
     })
     New-Variable -Name "SelectedColumnIndex" -Value 0 -Scope 2 -Force
-    $EditFirewallRulesDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn"))
-    $EditFirewallRulesDataGridView.Columns[0].AutoSizeMode = "AllCellsExceptHeader"
-    $EditFirewallRulesDataGridView.Columns[0].Frozen = $true
+    $EditFirewallRulesDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn" -Property @{
+       AutoSizeMode = "AllCellsExceptHeader"
+    }))
+    $EditFirewallRulesDataGridView.Columns[0].DefaultCellStyle.Alignment = "TopLeft"
     $ColumnIndex = 1
     $EmptyWindowsFirewallRule = New-Object -TypeName "WindowsFirewallRule"
     foreach ($PropertyName in ($EmptyWindowsFirewallRule.PsObject.Properties).name)
@@ -1114,11 +1158,17 @@ function EditFirewallRules
                 }))
                 $EditFirewallRulesDataGridView.Columns[$ColumnIndex].Name = $PropertyName
             }
+            $EditFirewallRulesDataGridView.Columns[$ColumnIndex].DefaultCellStyle.Alignment = "TopLeft"
             $ColumnIndex ++
         }
     }
     $EditFirewallRulesDataGridView.Columns["DisplayName"].Frozen = $true
     $EditFirewallRulesDataGridView.Columns["DisplayName"].Width = 150
+    $EditFirewallRulesDataGridView.Columns["Group"].Width = 55
+    $EditFirewallRulesDataGridView.Columns["Enabled"].Width = 55
+    $EditFirewallRulesDataGridView.Columns["Direction"].Width = 55
+    $EditFirewallRulesDataGridView.Columns["Action"].Width = 55
+    $EditFirewallRulesDataGridView.Columns["Protocol"].Width = 55
     New-Variable -Name "EditFirewallRulesDataGridViewButtonPanel" -Value (New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
         Width = $EditFirewallRulesDataGridView.Width
         Height = 22
@@ -1141,10 +1191,15 @@ function EditFirewallRules
             BackColor = "GhostWhite"
             Dock = "Fill"
             SelectionMode = "MultiExtended"
-            }
+        }
         $SelectItemsToRemoveListBox.Add_KeyDown(
         {
             SelectAll -Control $SelectItemsToRemoveListBox
+            if ($_.KeyData -eq "Delete")
+            {
+                $_.SuppressKeyPress = $true
+                $SelectItemsToRemoveAcceptButton.PerformClick()
+            }
         })
         foreach ($SelectedCell in $EditFirewallRulesDataGridView.SelectedCells)
         {
@@ -2179,7 +2234,7 @@ function ScanComputerForBlockedConnectionsPage
                         $FilteredNetworkConnection.Application = $FilteredNetworkConnection.Application -replace $ProgramData, "%ProgramData%" -replace $ProgramFiles, "%ProgramFiles%" -replace $ProgramFilesX86, "%ProgramFiles% (x86)" -replace $SystemRoot, "%SystemRoot%"
                         if ($PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)")
                         {
-                            $FilteredNetworkConnection.Notes = "$($FilteredNetworkConnection.DestPort)-" + $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[1]
+                            $FilteredNetworkConnection.Notes = "$($FilteredNetworkConnection.DestPort) - " + $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[1]
                         }
                     }
                     else
@@ -2187,7 +2242,7 @@ function ScanComputerForBlockedConnectionsPage
                         if ($PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)")
                         {
                             $FilteredNetworkConnection.DisplayName = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[0] + " (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound", "Out").Replace("Inbound", "In") + ")"
-                            $FilteredNetworkConnection.Notes = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[1]
+                            $FilteredNetworkConnection.Notes = "$($FilteredNetworkConnection.DestPort) - " + $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[1]
                         }
                         else
                         {
@@ -2393,8 +2448,10 @@ function ScanComputerForBlockedConnectionsPage
         ColumnHeadersHeightSizeMode = 'AutoSize'
         RowHeadersVisible = $false
     }
-    $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn"))
-    $ScanComputerForBlockedConnectionsDataGridView.Columns[0].AutoSizeMode = "AllCellsExceptHeader"
+    $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn" -Property @{
+        AutoSizeMode = "AllCellsExceptHeader"
+    }))
+    $ScanComputerForBlockedConnectionsDataGridView.Columns[0].DefaultCellStyle.Alignment = "TopLeft"
     $ColumnIndex = 1
     $EmptyNetworkConnection = New-Object -TypeName "NetworkConnection"
     foreach ($PropertyName in ($EmptyNetworkConnection.PsObject.Properties).name)
@@ -2406,7 +2463,6 @@ function ScanComputerForBlockedConnectionsPage
             }))
             $ScanComputerForBlockedConnectionsDataGridView.Columns[$ColumnIndex].Name = $PropertyName
             $ScanComputerForBlockedConnectionsDataGridView.Columns["$PropertyName"].DataPropertyName = $PropertyName
-            $ColumnIndex ++
         }
         else
         {
@@ -2414,12 +2470,24 @@ function ScanComputerForBlockedConnectionsPage
                 FlatStyle = "Popup"
             }))
             $ScanComputerForBlockedConnectionsDataGridView.Columns[$ColumnIndex].Name = $PropertyName
-            $ColumnIndex ++
         }
+        $ScanComputerForBlockedConnectionsDataGridView.Columns["$PropertyName"].DefaultCellStyle.Alignment = "TopLeft"
+        $ColumnIndex ++
     }
     $ScanComputerForBlockedConnectionsDataGridView.Columns["DisplayName"].Frozen = $true
     $ScanComputerForBlockedConnectionsDataGridView.Columns["DisplayName"].Width = 150
-    $ScanComputerForBlockedConnectionsDataGridView.Columns["Notes"].Width = 250
+    $ScanComputerForBlockedConnectionsDataGridView.Columns["Direction"].Width = 55
+    $ScanComputerForBlockedConnectionsDataGridView.Columns["SourcePort"].Width = 55
+    $ScanComputerForBlockedConnectionsDataGridView.Columns["DestPort"].Width = 55
+    $ScanComputerForBlockedConnectionsDataGridView.Columns["Protocol"].Width = 55
+    $ScanComputerForBlockedConnectionsDataGridView.Columns["Notes"].DefaultCellStyle.Padding = @{
+        Left=0
+        Top=2
+        Right=0
+        Bottom=2
+    }
+    $ScanComputerForBlockedConnectionsDataGridView.Columns["Notes"].DefaultCellStyle.WrapMode = "True"
+    $ScanComputerForBlockedConnectionsDataGridView.Columns["Notes"].Width = 300
     $ScanComputerForBlockedConnectionsTextBox = New-Object -TypeName "System.Windows.Forms.TextBox" -Property @{
         width = $ToolPageForm.Width - 36
         Location = @{
