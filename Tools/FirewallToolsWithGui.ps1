@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.4
+    Build 1809.5
 #>
 
 class WindowsFirewallRule
@@ -222,6 +222,7 @@ function UpdateDataSourceForComboBoxCell ($ArrayList,$DataGridView)
         foreach ($ComboBoxColumn in $ComboBoxColumns)
         {
             $DataGridView.rows[$Row].Cells[$ComboBoxColumn].DataSource = $ArrayList[$Row].$ComboBoxColumn
+            $DataGridView.rows[$Row].Cells[$ComboBoxColumn].DropDownWidth = (($DataGridView.rows[$Row].Cells[$ComboBoxColumn].DataSource).Length| Sort-Object -Descending| Select-Object -First 1) * 7
             $DataGridView.rows[$Row].Cells[$ComboBoxColumn].Value = $ArrayList[$Row].$ComboBoxColumn[0]
         } 
     }
@@ -253,19 +254,13 @@ function SelectAll ($Control)
     }
 }
 
-function ResetDataSource ($ResetDataSourceData)
-{
+function ResetDataSource ($ResetDataSourceData) # The data object is a combobox cell
+{   
+    $ResetDataSourceData.Value = $ResetDataSourceData.DataSource| Select-Object -Last 1
     $ResetDataSourceDataSource = $ResetDataSourceData.DataSource
-    $ResetDataSourceData.DataSource = $null
+    $ResetDataSourceData.DataSource = [System.Collections.ArrayList]@($ResetDataSourceData.Value) # Rather than setting the data source to $null set it to a temporary valid value to prevent errors
     $ResetDataSourceData.DataSource = $ResetDataSourceDataSource
-    if ($ResetDataSourceData.Value)
-    {
-        $ResetDataSourceData.Value = $ResetDataSourceData.DataSource| Select-Object -Last 1
-    }
-    if ($ResetDataSourceData.DropDownWidth)
-    {
-        $ResetDataSourceData.DropDownWidth = (($ResetDataSourceData.DataSource).Length| Sort-Object -Descending| Select-Object -First 1) * 7
-    }
+    $ResetDataSourceData.DropDownWidth = (($ResetDataSourceData.DataSource).Length| Sort-Object -Descending| Select-Object -First 1) * 7
 }
 
 function AddResource ($AddResourceProperty,$AddResourceValues)
@@ -645,6 +640,7 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
 
 function RemoveResource ($RemoveResourceProperty,$RemoveResourceDataObjects,$RemoveResourceSelectedItems)
 {
+    $RemoveResourceDataObjects[0].DataGridView.BeginEdit($true) # Required to reset the selected index in the GUI
     foreach ($RemoveResourceDataObject in $RemoveResourceDataObjects)
     {
         foreach ($RemoveResourceSelectedItem in $RemoveResourceSelectedItems)
@@ -657,6 +653,7 @@ function RemoveResource ($RemoveResourceProperty,$RemoveResourceDataObjects,$Rem
         }
         ResetDataSource -ResetDataSourceData $RemoveResourceDataObject
     }
+    $RemoveResourceDataObjects[0].DataGridView.EndEdit()
 }
 
 function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
@@ -1827,9 +1824,9 @@ function ScanComputerForBlockedConnectionsPage
         [string] $DisplayName
         [string] $Application
         [string] $Direction
-        [ipaddress] $SourceAddress
+        [string] $SourceAddress
         [int] $SourcePort
-        [ipaddress] $DestAddress
+        [string] $DestAddress
         [int] $DestPort
         [string] $Protocol
         [System.Collections.ArrayList] $Service
@@ -2182,7 +2179,7 @@ function ScanComputerForBlockedConnectionsPage
                         $FilteredNetworkConnection.Application = $FilteredNetworkConnection.Application -replace $ProgramData, "%ProgramData%" -replace $ProgramFiles, "%ProgramFiles%" -replace $ProgramFilesX86, "%ProgramFiles% (x86)" -replace $SystemRoot, "%SystemRoot%"
                         if ($PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)")
                         {
-                            $FilteredNetworkConnection.Notes = $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[1]
+                            $FilteredNetworkConnection.Notes = "$($FilteredNetworkConnection.DestPort)-" + $PortData."$($FilteredNetworkConnection.DestPort)-$($FilteredNetworkConnection.Protocol)"[1]
                         }
                     }
                     else
