@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.6
+    Build 1809.7
 #>
 
 class WindowsFirewallRule
@@ -265,7 +265,6 @@ function ResetDataSource ($ResetDataSourceData) # The data object can be a combo
         $ResetDataSourceData.Value = $ResetDataSourceData.DataSource| Select-Object -Last 1
         $ResetDataSourceData.DataSource = [System.Collections.ArrayList]@($ResetDataSourceData.Value) # Rather than setting the data source to $null set it to a temporary valid value to prevent errors
         $ResetDataSourceData.DataSource = $ResetDataSourceDataSource
-        #$ResetDataSourceData.Value = $ResetDataSourceData.DataSource| Select-Object -Last 1
         $ResetDataSourceData.DropDownWidth = (($ResetDataSourceData.DataSource).Length| Sort-Object -Descending| Select-Object -First 1) * 7
     }
     else
@@ -901,38 +900,41 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
         }
         $ReviewAndSaveSaveToGpoButton.Add_Click(
         {
-            function UpdateGroupPolicyObject
+            if (CheckForGpoModule)
             {
-                try
+                function UpdateGroupPolicyObject
                 {
-                    $ReviewAndSaveStatusBar.Text = "Updating domain group policy object."
-                    foreach ($Command in $Commands)
+                    try
                     {
-                        Invoke-Expression -Command $Command
+                        $ReviewAndSaveStatusBar.Text = "Updating domain group policy object."
+                        foreach ($Command in $Commands)
+                        {
+                            Invoke-Expression -Command $Command
+                        }
+                        PopUpMessage -Message "Domain group policy object updated." -CurrentForm $ReviewAndSaveForm
                     }
-                    PopUpMessage -Message "Domain group policy object updated." -CurrentForm $ReviewAndSaveForm
+                    catch
+                    {
+                        PopUpMessage -Message $error[0] -CurrentForm $ReviewAndSaveForm
+                    }
                 }
-                catch
+                if($ExistingRules -eq $false)
                 {
-                    PopUpMessage -Message $error[0] -CurrentForm $ReviewAndSaveForm
+                    Remove-Variable -Name "SelectedItems" -Scope 1 -Force -ErrorAction SilentlyContinue
+                    ResourceSelection -ResourceSelectionData ((Get-GPO -All).DisplayName| Sort-Object) -ResourceSelectionStatusBarText $Language[23] -CurrentForm $ReviewAndSaveForm
+                    if ($SelectedItems)
+                    {
+                        $Commands.Insert(0, "`$GpoSession = Open-NetGPO -PolicyStore `"$DomainName\$(($SelectedItems -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$'))`"")
+                        $Commands.Add("Save-NetGPO -GPOSession `$GpoSession")
+                        UpdateGroupPolicyObject
+                    }
                 }
-            }
-            if($ExistingRules -eq $false)
-            {
-                Remove-Variable -Name "SelectedItems" -Scope 1 -Force -ErrorAction SilentlyContinue
-                ResourceSelection -ResourceSelectionData ((Get-GPO -All).DisplayName| Sort-Object) -ResourceSelectionStatusBarText $Language[23] -CurrentForm $ReviewAndSaveForm
-                if ($SelectedItems)
+                else
                 {
-                    $Commands.Insert(0, "`$GpoSession = Open-NetGPO -PolicyStore `"$DomainName\$(($SelectedItems -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$'))`"")
-                    $Commands.Add("Save-NetGPO -GPOSession `$GpoSession")
                     UpdateGroupPolicyObject
                 }
+                $ReviewAndSaveStatusBar.Text = "Review the commands and save them to a .ps1 or back to the domain GPO."
             }
-            else
-            {
-                UpdateGroupPolicyObject
-            }
-            $ReviewAndSaveStatusBar.Text = "Review the commands and save them to a .ps1 or back to the domain GPO."
         })
         $ReviewAndSaveSaveToGpoButton.Left = $ReviewAndSaveSaveAsButton.Left - $ReviewAndSaveSaveToGpoButton.Width - 5 
         $ReviewAndSaveForm.CancelButton = $ReviewAndSaveCancelButton
@@ -999,7 +1001,7 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
     {
         $Commands = New-Object -TypeName "System.Collections.ArrayList"
         foreach ($WindowsFirewallRule in $WindowsFirewallRules)
-        {
+        { # This function does not check for the properties InterfaceAlias, InterfaceType and Security. These may be added in a futire build.
             $Index = $Commands.Add("New-NetFirewallRule -GPOSession `$GpoSession")
             foreach ($PropertyName in "Name", "DisplayName")
             { # These properties are always needed
@@ -1045,7 +1047,7 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
                     $Commands[$Index] = $Commands[$Index] + " -$PropertyName $true" 
                 }
             }
-        } # This function does not check for the properties InterfaceAlias, InterfaceType and Security. These may be added in a futire build.
+        }
         ReviewAndSave
     }
 }
@@ -1393,6 +1395,15 @@ function ResourceSelection ($ResourceSelectionData,$ResourceSelectionStatusBarTe
     $ResourceSelectionForm.Controls.Add($ResourceSelectionBottomButtonPanel)
     $ResourceSelectionForm.Controls.Add($ResourceSelectionStatusBar) # Added to the form last to ensure the status bar gets put at the bottom
     return $ResourceSelectionForm.ShowDialog()
+}
+
+function CheckForGpoModule
+{
+    if (-not (Get-Module "GroupPolicy"))
+    {
+        PopUpMessage -Message $Language[34]
+        return $false
+    }
 }
 
 function FindAllPoliciesWithFirewallRulesPage
@@ -2020,7 +2031,7 @@ function ScanComputerForBlockedConnectionsPage
                 }
                 Until ($NetworkConnectivityJobRanToCompletion -eq $true)
                 $ComputerCimSession = New-CimSession -ComputerName $Computer -ErrorAction Stop
-                $ComputerPsSession = New-PSSession -ComputerName $Computer
+                $ComputerPsSession = New-PSSession -ComputerName $Computer -ErrorAction Stop
                 Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                     if(-not (AuditPol /Get /Subcategory:"Filtering Platform Connection").Where({$_ -like "*Filtering Platform Connection*Failure"}))
                     {throw "Failure auditing is not enabled."}
@@ -2580,7 +2591,7 @@ function ExportExistingRulesToPowerShellCommandsPage
             [array]$FirewallRules = Get-NetFirewallRule -GPOSession $GPOSession
             $RuleProgress = 1
             foreach ($FirewallRule in $FirewallRules)
-            {
+            { # This function does not check for the properties InterfaceAlias, InterfaceType and Security. These may be added in a future build.
                 $ProgressBar.Value = ($RuleProgress*($OneHundredPercent/$FirewallRules.Count))
                 $ExportExistingRulesToPowerShellCommandsStatusBar.Text = "Exporting rule $($FirewallRule.DisplayName)" 
                 $RuleProgress ++
@@ -2749,7 +2760,7 @@ New-NetFirewallRule -GPOSession `$GPOSession
 "@
                 }
                 [string[]]$Commands += $Command
-            } # This function does not check for the properties InterfaceAlias, InterfaceType and Security. These may be added in a futire build.
+            }
             $Commands| Out-File $ExportExistingRulesToPowerShellCommandsSaveFileDialog.FileName
             Remove-Variable -Name "GPOSession" -Force
             $ExportExistingRulesToPowerShellCommandsStatusBar.Text = "Select a policy to export."
@@ -2879,9 +2890,12 @@ function MainThread
     })
     $ExportExistingRulesToPowerShellCommandsButton.Add_Click(
     {
-        $ToolSelectionPageForm.Hide()
-        ExportExistingRulesToPowerShellCommandsPage
-        $ToolSelectionPageForm.Show()   
+        if (CheckForGpoModule)
+        {
+            $ToolSelectionPageForm.Hide()
+            ExportExistingRulesToPowerShellCommandsPage
+            $ToolSelectionPageForm.Show()
+        }  
     })
     $ExportExistingRulesToPowerShellCommandsToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
     $ExportExistingRulesToPowerShellCommandsToolTip.SetToolTip($ExportExistingRulesToPowerShellCommandsButton, $Language[2])
@@ -2894,9 +2908,12 @@ function MainThread
     $FindAllPoliciesWithFirewallRulesButton.Text = $Language[3]
     $FindAllPoliciesWithFirewallRulesButton.Add_Click(
     {
-        $ToolSelectionPageForm.Hide()
-        FindAllPoliciesWithFirewallRulesPage
-        $ToolSelectionPageForm.Show()   
+        if (CheckForGpoModule)
+        {
+            $ToolSelectionPageForm.Hide()
+            FindAllPoliciesWithFirewallRulesPage
+            $ToolSelectionPageForm.Show()
+        } 
     })
     $FindAllPoliciesWithFirewallRulesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
     $FindAllPoliciesWithFirewallRulesToolTip.SetToolTip($FindAllPoliciesWithFirewallRulesButton, $Language[4])
@@ -2926,9 +2943,12 @@ function MainThread
     $EditExistingFirewallRulesButton.Text = $Language[7]
     $EditExistingFirewallRulesButton.Add_Click(
     {
-        $ToolSelectionPageForm.Hide()
-        EditExistingFirewallRulesPage
-        $ToolSelectionPageForm.Show()   
+        if (CheckForGpoModule)
+        {
+            $ToolSelectionPageForm.Hide()
+            EditExistingFirewallRulesPage
+            $ToolSelectionPageForm.Show()
+        }  
     })
     $EditExistingFirewallRulesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip" -Property @{
         AutoPopDelay = 7500
@@ -2966,12 +2986,12 @@ function MainThread
 }
 
 $EnglishPortData = @{
-"0-ICMPv4" = "Echo request", "TBA"
+"0-ICMPv4" = "Echo request", "Ping, can be used to exfiltrate data and should not be used to the Internet"
 "0-ICMPv6" = "Echo request", "TBA"
-"22-TCP" = "SSH", "Can be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses."
+"22-TCP" = "SSH", "Can be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses.`r`nCommonly used to tunnel other traffic and bypass firewalls."
 "67-UDP" = "DHCP request", "Clients broadcast DHCP requests, inbound requests only need to be allowed on DHCP servers."
 "80-TCP" = "HTTP", "Unsecured web service, consider using secure HTTPS.`r`nCan be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses."
-"443-TCP" = "HTTPS", "Can be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses."
+"443-TCP" = "HTTPS", "Can be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses.`r`nCommonly used to tunnel other traffic and bypass firewalls."
 "445-TCP" = "SMB", "File sharing, can be used to exfiltrate data and should not be used to the Internet.`r`nClients should only accept inbound connections from tier management resources.`r`nCan be used by malware compromise computers across the network."
 }
 
@@ -3010,6 +3030,7 @@ $English = @(
 "Change"
 "Host name not found."
 "Nothing selected."
+"Group policy module not found,`r`nthis tool is not available without this module.`r`Please install the RSAT tools on clients or add`r`nthe group policy management feature on servers."
 )
 
 switch -Wildcard ((Get-UICulture).Name)
