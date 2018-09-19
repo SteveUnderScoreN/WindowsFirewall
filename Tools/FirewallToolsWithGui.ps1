@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.7
+    Build 1809.8
 #>
 
 class WindowsFirewallRule
@@ -1399,11 +1399,12 @@ function ResourceSelection ($ResourceSelectionData,$ResourceSelectionStatusBarTe
 
 function CheckForGpoModule
 {
-    if (-not (Get-Module "GroupPolicy"))
+    if (-not (Get-Module -ListAvailable -Name "GroupPolicy"))
     {
         PopUpMessage -Message $Language[34]
         return $false
     }
+    return $true
 }
 
 function FindAllPoliciesWithFirewallRulesPage
@@ -1770,7 +1771,7 @@ function EditExistingFirewallRulesPage
                     Description = $EditExistingFirewallRulesRule.Description
                     Group = $EditExistingFirewallRulesRule.Group
                     Enabled = $EditExistingFirewallRulesRule.Enabled
-                    Profile = @(($EditExistingFirewallRulesRule.Profile).Tostring().Replace(", ", "").Split())
+                    Profile = @($EditExistingFirewallRulesRule.Profile) -split (", ")
                     Direction = $EditExistingFirewallRulesRule.Direction
                     Action = $EditExistingFirewallRulesRule.Action
                     LocalAddress = @(($EditExistingFirewallRulesRule| Get-NetFirewallAddressFilter -GPOSession $GpoSession).LocalAddress)
@@ -2998,15 +2999,15 @@ $EnglishPortData = @{
 $English = @(
 "Windows firewall tool selection"
 "Export existing`n rules to`nPowerShell commands"
-"Use this tool to query a domain for policies`nthat have existing firewall rules and then`nexport a policy to a PowerShell script.`n100% complete."
+"Use this tool to query a domain for policies`nthat have existing firewall rules and then`nexport a policy to a PowerShell script.`n"
 "Find all policies with firewall rules"
-"Use this tool to query a domain for policies`nthat have existing firewall rules, this list`ncan then be saved to a text file as reference.`n100% complete."
+"Use this tool to query a domain for policies`nthat have existing firewall rules, this list`ncan then be saved to a text file as reference.`n"
 "  Update domain resources"
-"Use this tool to update domain resources that can be used`nto create or update firewall rules in group policy objects.`nNames can be used and will be translated into IP addresses`nwhich can be applied to multiple rules.`n100% complete."
+"Use this tool to update domain resources that can be used`nto create or update firewall rules in group policy objects.`nNames can be used and will be translated into IP addresses`nwhich can be applied to multiple rules.`n"
 "Edit existing firewall rules"
-"Use this tool to edit existing firewall rules, domain resources can be`nselected and DNS will be used to resolve all IP addresses to be used.`nMultiple rules can be edited at once and saved to a PowerShell`nscript or saved back to the domain.`n95% complete."
+"Use this tool to edit existing firewall rules, domain resources can be`nselected and DNS will be used to resolve all IP addresses to be used.`nMultiple rules can be edited at once and saved to a PowerShell`nscript or saved back to the domain.`nBeta 1."
 "Scan computer for blocked connections"
-"Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`n97% complete."
+"Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`nBeta 1."
 "Please select a tool to launch."
 "Exit"
 "Removing duplicate entries."
@@ -3030,7 +3031,7 @@ $English = @(
 "Change"
 "Host name not found."
 "Nothing selected."
-"Group policy module not found,`r`nthis tool is not available without this module.`r`Please install the RSAT tools on clients or add`r`nthe group policy management feature on servers."
+"Group policy module not found.`r`nThis tool is not available without this module.`r`Please install the RSAT tools on clients or add`r`nthe group policy management feature on servers."
 )
 
 switch -Wildcard ((Get-UICulture).Name)
