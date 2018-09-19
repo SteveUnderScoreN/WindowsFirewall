@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.8
+    Build 1809.9
 #>
 
 class WindowsFirewallRule
@@ -1082,16 +1082,6 @@ function EditFirewallRules
         }
         RowHeadersVisible = $false
     }) -Scope 2 -Force
-    $EditFirewallRulesDataGridView.Add_SizeChanged(
-    {
-        $EditFirewallRulesDataGridView.Size = $EditFirewallRulesDataGridView.PreferredSize
-        $EditFirewallRulesDataGridViewButtonPanel.Location = @{
-            X = 0
-            Y = $EditFirewallRulesDataGridView.Bottom
-        }
-        $EditFirewallRulesDataGridViewButtonPanel.Width = $EditFirewallRulesDataGridView.width
-        $EditFirewallRulesDataGridViewAddButton.Left = $EditFirewallRulesDataGridViewRemoveButton.Left - $EditFirewallRulesDataGridViewAddButton.Width - 5
-    })
     $EditFirewallRulesDataGridView.Add_CurrentCellChanged(
     {
         if ($EditFirewallRulesDataGridView.CurrentCell.DropDownWidth)
@@ -1133,6 +1123,23 @@ function EditFirewallRules
             $EditFirewallRulesDataGridView.CurrentCell.Selected = $true
             Set-Variable -Name "SelectedColumnIndex" -Value $EditFirewallRulesDataGridView.CurrentCell.ColumnIndex -Scope 1
         }
+    })
+    $EditFirewallRulesDataGridView.Add_DoubleClick(
+    {
+        if ($EditFirewallRulesDataGridViewChangeButton.Visible = $true)
+        {
+            $EditFirewallRulesDataGridViewChangeButton.PerformClick()
+        }
+    })
+    $EditFirewallRulesDataGridView.Add_SizeChanged(
+    {
+        $EditFirewallRulesDataGridView.Size = $EditFirewallRulesDataGridView.PreferredSize
+        $EditFirewallRulesDataGridViewButtonPanel.Location = @{
+            X = 0
+            Y = $EditFirewallRulesDataGridView.Bottom
+        }
+        $EditFirewallRulesDataGridViewButtonPanel.Width = $EditFirewallRulesDataGridView.width
+        $EditFirewallRulesDataGridViewAddButton.Left = $EditFirewallRulesDataGridViewRemoveButton.Left - $EditFirewallRulesDataGridViewAddButton.Width - 5
     })
     New-Variable -Name "SelectedColumnIndex" -Value 0 -Scope 2 -Force
     $EditFirewallRulesDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn" -Property @{
