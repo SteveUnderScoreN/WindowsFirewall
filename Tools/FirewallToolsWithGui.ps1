@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.9
+    Build 1809.10
 #>
 
 class WindowsFirewallRule
@@ -1054,11 +1054,11 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
 
 function EditFirewallRules 
 { # This is designed to be called from inside a click event, the object will be placed in the scope of the calling function.
-    New-Variable -Name "EditFirewallRulesDataGridViewPanel" -Value (New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
+    New-Variable -Name "EditFirewallRulesPanel" -Value (New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
         Dock = "Fill"
         BackColor = "WhiteSmoke"
     }) -Scope 2 -Force
-    $EditFirewallRulesDataGridViewPanel.Add_SizeChanged(
+    $EditFirewallRulesPanel.Add_SizeChanged(
     {
         $EditFirewallRulesDataGridViewButtonPanel.MaximumSize = @{
             Width = $ToolPageForm.Width - 16
@@ -1139,7 +1139,6 @@ function EditFirewallRules
             Y = $EditFirewallRulesDataGridView.Bottom
         }
         $EditFirewallRulesDataGridViewButtonPanel.Width = $EditFirewallRulesDataGridView.width
-        $EditFirewallRulesDataGridViewAddButton.Left = $EditFirewallRulesDataGridViewRemoveButton.Left - $EditFirewallRulesDataGridViewAddButton.Width - 5
     })
     New-Variable -Name "SelectedColumnIndex" -Value 0 -Scope 2 -Force
     $EditFirewallRulesDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn" -Property @{
@@ -1299,15 +1298,7 @@ function EditFirewallRules
     $EditFirewallRulesDataGridViewNsLookupButton.Left = $EditFirewallRulesDataGridViewAddButton.Left - $EditFirewallRulesDataGridViewNsLookupButton.Width - 5
     $EditFirewallRulesDataGridViewNsLookupButton.Add_Click(
     {
-        $NameHost = (Resolve-DnsName -Name $EditFirewallRulesDataGridView.CurrentCell.Value -ErrorAction SilentlyContinue).NameHost
-        if ($NameHost)
-        {
-            PopUpMessage -Message $NameHost
-        }
-        else
-        {
-            PopUpMessage -Message $Language[32]
-        }
+        NsLookup -IpAddresses $EditFirewallRulesDataGridView.SelectedCells.Value
     })
     New-Variable -Name "EditFirewallRulesDataGridViewChangeButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
         Text = $Language[31]
@@ -1323,8 +1314,8 @@ function EditFirewallRules
     $EditFirewallRulesDataGridViewButtonPanel.Controls.Add($EditFirewallRulesDataGridViewAddButton)
     $EditFirewallRulesDataGridViewButtonPanel.Controls.Add($EditFirewallRulesDataGridViewNsLookupButton)
     $EditFirewallRulesDataGridViewButtonPanel.Controls.Add($EditFirewallRulesDataGridViewChangeButton)
-    $EditFirewallRulesDataGridViewPanel.Controls.Add($EditFirewallRulesDataGridView)
-    $EditFirewallRulesDataGridViewPanel.Controls.Add($EditFirewallRulesDataGridViewButtonPanel)
+    $EditFirewallRulesPanel.Controls.Add($EditFirewallRulesDataGridView)
+    $EditFirewallRulesPanel.Controls.Add($EditFirewallRulesDataGridViewButtonPanel)
 }
 
 function ResourceSelection ($ResourceSelectionData,$ResourceSelectionStatusBarText,$CurrentForm = $ToolPageForm,$ResourceSelectionSelectionMode = "MultiExtended")
@@ -1412,6 +1403,22 @@ function CheckForGpoModule
         return $false
     }
     return $true
+}
+
+function NsLookup ($IpAddresses)
+{
+    foreach ($IpAddress in $IpAddresses)
+    {
+        $NameHost = (Resolve-DnsName -Name $IpAddress -ErrorAction SilentlyContinue).NameHost
+        if ($NameHost)
+        {
+            PopUpMessage -Message "$IpAddress - $NameHost"
+        }
+        else
+        {
+            PopUpMessage -Message "$IpAddress - $($Language[32])"
+        }
+    }
 }
 
 function FindAllPoliciesWithFirewallRulesPage
@@ -1665,7 +1672,7 @@ function EditExistingFirewallRulesPage
     }
     $ToolPageForm.Add_Closing(
     {
-        if ($EditFirewallRulesDataGridViewPanel.Parent)
+        if ($EditFirewallRulesPanel.Parent)
         {
             if ((CancelAccept -Message $Language[19] -CancelButtonText $Language[21] -AcceptButtonText $Language[20]) -eq "Cancel")
             {
@@ -1798,7 +1805,7 @@ function EditExistingFirewallRulesPage
             EditFirewallRules
             $EditFirewallRulesDataGridView.DataSource = $WindowsFirewallRules
             $EditExistingFirewallRulesAcceptButton.Text = "Create"
-            $EditExistingFirewallRulesPanel.Controls.Add($EditFirewallRulesDataGridViewPanel)
+            $EditExistingFirewallRulesPanel.Controls.Add($EditFirewallRulesPanel)
             $EditExistingFirewallRulesPanel.Controls.Remove($EditExistingFirewallRulesRulesListBox)
             UpdateDataSourceForComboBoxCell -ArrayList $WindowsFirewallRules -DataGridView $EditFirewallRulesDataGridView # This needs to run after the gridview control has been added so that the rows exist
             }
@@ -1807,7 +1814,7 @@ function EditExistingFirewallRulesPage
                 PopUpMessage -Message "Please select one or more rules to edit."
             }
         }
-        elseif ($EditFirewallRulesDataGridViewPanel.Parent)
+        elseif ($EditFirewallRulesPanel.Parent)
         {
             [int[]]$SelectedIndices = @()
             for ($i = 0; $i -lt $EditFirewallRulesDataGridView.Rows.Count; $i++)
@@ -1849,7 +1856,7 @@ function EditExistingFirewallRulesPage
             {
                 $EditExistingFirewallRulesStatusBar.Text = "$($WindowsFirewallRules.Count) rule(s) imported, select one or more rules to edit."
                 $EditExistingFirewallRulesAcceptButton.Text = $Language[25]
-                $EditExistingFirewallRulesPanel.Controls.Remove($EditFirewallRulesDataGridViewPanel)
+                $EditExistingFirewallRulesPanel.Controls.Remove($EditFirewallRulesPanel)
                 $EditExistingFirewallRulesPanel.Controls.Add($EditExistingFirewallRulesRulesListBox)
                 $EditExistingFirewallRulesRulesListBox.Focus()
             }
@@ -1923,7 +1930,7 @@ function ScanComputerForBlockedConnectionsPage
     }
     $ToolPageForm.Add_Closing(
     {
-        if ($EditFirewallRulesDataGridViewPanel.Parent)
+        if ($EditFirewallRulesPanel.Parent)
         {
             if ((CancelAccept -Message $Language[19] -CancelButtonText $Language[21] -AcceptButtonText $Language[20]) -eq "Cancel")
             {
@@ -2288,6 +2295,7 @@ function ScanComputerForBlockedConnectionsPage
                 $ScanComputerForBlockedConnectionsBackButton.Left = $ScanComputerForBlockedConnectionsAcceptButton.Left - $ScanComputerForBlockedConnectionsBackButton.Width - 5
                 $ScanComputerForBlockedConnectionsBottomButtonPanel.Controls.Add($ScanComputerForBlockedConnectionsBackButton)
                 $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridView)
+                $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridViewButtonPanel)
                 $ScanComputerForBlockedConnectionsDataGridView.Focus()
                 UpdateDataSourceForComboBoxCell -ArrayList $FilteredNetworkConnections -DataGridView $ScanComputerForBlockedConnectionsDataGridView
             }
@@ -2384,7 +2392,8 @@ function ScanComputerForBlockedConnectionsPage
             $ScanComputerForBlockedConnectionsStatusBar.Text = "$($WindowsFirewallRules.Count) rule(s) imported, edit rules and then select one or more rules to create the commands."
             EditFirewallRules
             $EditFirewallRulesDataGridView.DataSource = $WindowsFirewallRules
-            $ScanComputerForBlockedConnectionsPanel.Controls.Add($EditFirewallRulesDataGridViewPanel)
+            $ScanComputerForBlockedConnectionsPanel.Controls.Add($EditFirewallRulesPanel)
+            $ScanComputerForBlockedConnectionsPanel.Controls.Remove($ScanComputerForBlockedConnectionsDataGridViewButtonPanel)
             $ScanComputerForBlockedConnectionsPanel.Controls.Remove($ScanComputerForBlockedConnectionsDataGridView)
             UpdateDataSourceForComboBoxCell -ArrayList $WindowsFirewallRules -DataGridView $EditFirewallRulesDataGridView # This needs to run after the gridview control has been added so that the rows exist
             }
@@ -2393,7 +2402,7 @@ function ScanComputerForBlockedConnectionsPage
                 PopUpMessage -Message $Language[18]
             }
         }
-        elseif ($EditFirewallRulesDataGridViewPanel.Parent)
+        elseif ($EditFirewallRulesPanel.Parent)
         {
             [int[]]$SelectedIndices = @()
             for ($i = 0; $i -lt $EditFirewallRulesDataGridView.Rows.Count; $i++)
@@ -2423,6 +2432,7 @@ function ScanComputerForBlockedConnectionsPage
         if ($ScanComputerForBlockedConnectionsDataGridView.Parent)
         {
             $ScanComputerForBlockedConnectionsBottomButtonPanel.Controls.Remove($ScanComputerForBlockedConnectionsBackButton)
+            $ScanComputerForBlockedConnectionsPanel.Controls.Remove($ScanComputerForBlockedConnectionsDataGridViewButtonPanel)
             $ScanComputerForBlockedConnectionsPanel.Controls.Remove($ScanComputerForBlockedConnectionsDataGridView)
             $ToolPageForm.FormBorderStyle = "FixedDialog"
             $ToolPageForm.Location = @{
@@ -2446,13 +2456,14 @@ function ScanComputerForBlockedConnectionsPage
             $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsTextBox)
             $ScanComputerForBlockedConnectionsTextBox.focus()
         }
-        elseif ($EditFirewallRulesDataGridViewPanel.Parent)
+        elseif ($EditFirewallRulesPanel.Parent)
         {
             if ((CancelAccept -Message $Language[19] -CancelButtonText $Language[21] -AcceptButtonText $Language[20]) -eq "OK")
             {
                 $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[18]
                 $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridView)
-                $ScanComputerForBlockedConnectionsPanel.Controls.Remove($EditFirewallRulesDataGridViewPanel)
+                $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridViewButtonPanel)
+                $ScanComputerForBlockedConnectionsPanel.Controls.Remove($EditFirewallRulesPanel)
                 UpdateDataSourceForComboBoxCell -ArrayList $FilteredNetworkConnections -DataGridView $ScanComputerForBlockedConnectionsDataGridView
             }
         }
@@ -2462,11 +2473,35 @@ function ScanComputerForBlockedConnectionsPage
     $ScanComputerForBlockedConnectionsDataGridView = New-Object -TypeName "System.Windows.Forms.DataGridView" -Property @{
         AutoSize = $true
         BackGroundColor = "WhiteSmoke"
-        Dock = "Fill"
+        Dock = "None"
         AutoGenerateColumns = $false
         ColumnHeadersHeightSizeMode = 'AutoSize'
+        MaximumSize = @{
+            Width = $ToolPageForm.Width - 16
+            Height = $ToolPageForm.Height - 120
+        }
         RowHeadersVisible = $false
     }
+    $ScanComputerForBlockedConnectionsDataGridView.Add_CurrentCellChanged(
+    {
+        if ($ScanComputerForBlockedConnectionsDataGridView.CurrentCell.OwningColumn.Name -in "SourceAddress", "DestAddress") # -and $ScanComputerForBlockedConnectionsDataGridView.CurrentCell.Value -notin "Any", "DefaultGateway", "DHCP", "DNS", "Internet", "Intranet", "LocalSubnet")
+        {
+                $ScanComputerForBlockedConnectionsDataGridViewNsLookupButton.Visible = $true
+        }
+        else
+        {
+            $ScanComputerForBlockedConnectionsDataGridViewNsLookupButton.Visible = $false
+        }
+    })
+    $ScanComputerForBlockedConnectionsDataGridView.Add_SizeChanged(
+    {
+        $ScanComputerForBlockedConnectionsDataGridView.Size = $ScanComputerForBlockedConnectionsDataGridView.PreferredSize
+        $ScanComputerForBlockedConnectionsDataGridViewButtonPanel.Location = @{
+            X = 0
+            Y = $ScanComputerForBlockedConnectionsDataGridView.Bottom
+        }
+        $ScanComputerForBlockedConnectionsDataGridViewButtonPanel.Width = $ScanComputerForBlockedConnectionsDataGridView.width
+    })
     $ScanComputerForBlockedConnectionsDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn" -Property @{
         AutoSizeMode = "AllCellsExceptHeader"
     }))
@@ -2507,6 +2542,25 @@ function ScanComputerForBlockedConnectionsPage
     }
     $ScanComputerForBlockedConnectionsDataGridView.Columns["Notes"].DefaultCellStyle.WrapMode = "True"
     $ScanComputerForBlockedConnectionsDataGridView.Columns["Notes"].Width = 300
+    $ScanComputerForBlockedConnectionsDataGridViewButtonPanel = New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
+        Width = $ScanComputerForBlockedConnectionsDataGridView.Width
+        Height = 22
+        Dock = "None"
+        BackColor = "WhiteSmoke"
+        Location = @{
+            X = 0
+            Y = $ScanComputerForBlockedConnectionsDataGridView.Bottom
+        }
+    }
+    $ScanComputerForBlockedConnectionsDataGridViewNsLookupButton = New-Object -TypeName "System.Windows.Forms.Button" -Property @{
+        Text = $Language[30]
+        Anchor = "Right"
+    }
+    $ScanComputerForBlockedConnectionsDataGridViewNsLookupButton.Left = $ScanComputerForBlockedConnectionsDataGridViewButtonPanel.Width - $ScanComputerForBlockedConnectionsDataGridViewNsLookupButton.Width - 16
+    $ScanComputerForBlockedConnectionsDataGridViewNsLookupButton.Add_Click(
+    {
+        NsLookup -IpAddresses $ScanComputerForBlockedConnectionsDataGridView.SelectedCells.Value
+    })
     $ScanComputerForBlockedConnectionsTextBox = New-Object -TypeName "System.Windows.Forms.TextBox" -Property @{
         width = $ToolPageForm.Width - 36
         Location = @{
@@ -2520,12 +2574,22 @@ function ScanComputerForBlockedConnectionsPage
         Text = $Language[16]
     }
     $ScanComputerForBlockedConnectionsPanel = New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
-        AutoScroll = $true
-        Anchor = "Top, Bottom, Left, Right"
-        Width = $ToolPageForm.Width - 16
-        Height = $ToolPageForm.Height - 82
+        Dock = "Fill"
+        BackColor = "WhiteSmoke"
     }
+    $ScanComputerForBlockedConnectionsPanel.Add_SizeChanged(
+    {
+        $ScanComputerForBlockedConnectionsDataGridViewButtonPanel.MaximumSize = @{
+            Width = $ToolPageForm.Width - 16
+            Height = 22
+        }
+        $ScanComputerForBlockedConnectionsDataGridView.MaximumSize = @{
+            Width = $ToolPageForm.Width - 16
+            Height = $ToolPageForm.Height - 120
+        }
+    })
     $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsTextBox)
+    $ScanComputerForBlockedConnectionsDataGridViewButtonPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridViewNsLookupButton)
     $ScanComputerForBlockedConnectionsBottomButtonPanel.Controls.Add($ScanComputerForBlockedConnectionsCancelButton)
     $ScanComputerForBlockedConnectionsBottomButtonPanel.Controls.Add($ScanComputerForBlockedConnectionsAcceptButton)
     $ToolPageForm.Controls.Add($ScanComputerForBlockedConnectionsPanel) # Added to the form first to set focus on this panel
