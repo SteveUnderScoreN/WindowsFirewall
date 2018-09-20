@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.10
+    Build 1809.11
 #>
 
 class WindowsFirewallRule
@@ -1582,10 +1582,19 @@ function UpdateDomainResourcesPage
             Height = 250
         }
     }
+    $UpdateDomainResourcesResourcesListBox.Add_MouseHover(
+    {
+        $MouseHoverIndex = $UpdateDomainResourcesResourcesListBox.IndexFromPoint($UpdateDomainResourcesResourcesListBox.PointToClient([System.Windows.Forms.Control]::MousePosition))
+        $UpdateDomainResourcesToolTip.Active = $false
+        $UpdateDomainResourcesToolTip.AutoPopDelay = [math]::Sqrt(($UpdateDomainResourcesToolTips[$MouseHoverIndex]).Length) * 800 
+        $UpdateDomainResourcesToolTip.SetToolTip($UpdateDomainResourcesResourcesListBox, $UpdateDomainResourcesToolTips[$MouseHoverIndex])
+        $UpdateDomainResourcesToolTip.Active = $true
+    })
     $UpdateDomainResourcesResourcesListBox.Add_SelectedValueChanged(
     {
         $UpdateDomainResourcesValuesListBox.DataSource = (Get-Variable -Name $UpdateDomainResourcesResourcesListBox.SelectedItem).Value
     })
+    $UpdateDomainResourcesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
     $UpdateDomainResourcesResourcesListBox.DataSource = $Script:ResourcesAndProxyPorts
     $UpdateDomainResourcesValuesContextMenuStrip = New-Object -TypeName "System.Windows.Forms.ContextMenuStrip"
     $UpdateDomainResourcesValuesContextMenuStrip.Items.Add("Remove")
@@ -3105,12 +3114,34 @@ $English = @(
 "Group policy module not found.`r`nThis tool is not available without this module.`r`Please install the RSAT tools on clients or add`r`nthe group policy management feature on servers."
 )
 
+$EnglishUpdateDomainResourcesToolTips = @(
+"Backup servers"
+"Clustered nodes and management IP addresses"
+"CRL servers"
+"DirectAccess servers`r`nThis is the externally resolvable hostname or address of the DirectAccess IPHTTPS endpoint."
+"DNS servers`r`nSpecify these if you do not have DNS on each domain controller or you have additional DNS servers."
+"Domain controllers"
+"External VPN endpoints`r`nThis is the externally resolvable IPSec hostname or address."
+"File servers"
+"Key management servers"
+"Microsoft subnets"
+"Proxy server ports"
+"Proxy servers"
+"Server role administration servers`r`nThese are trusted machines used by tier administrators permitted to administer a server role."
+"SQL servers"
+"Tier X management servers`r`nThese are used in tier X firewall baselines to define which computers can manage the device at a particular tier."
+"Trusted DHCP subnets`r`nThis is client enterprise subnets and includes subnets issued by the VPN server, `"Predefined set of computers`" cannot be used here."
+"Web servers"
+"WPAD and PAC file servers"
+)
+
 switch -Wildcard ((Get-UICulture).Name)
 {
     "en-*"
     {
         $Language = $English
         $PortData = $EnglishPortData
+        $UpdateDomainResourcesToolTips = $EnglishUpdateDomainResourcesToolTips
         break
     }
 }
