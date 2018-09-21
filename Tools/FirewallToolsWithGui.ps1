@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.11
+    Build 1809.12
 #>
 
 class WindowsFirewallRule
@@ -37,49 +37,159 @@ class WindowsFirewallRule
     {
         $ClonedObject = $this.MemberwiseClone()
         foreach ($Name in ($this| Get-Member).Where({$_.Definition -like "System.Collections.*"}).Name)
-        { # Clone (deep copy) objects within an object#
+        { # Clone (deep copy) objects within an object
             $ClonedObject.$Name = $this.$Name.Clone()
         }
         return $ClonedObject
     }
 }
     
-function DefaultDomainResources
+function DefaultDomainResources ($DefaultDomainResourcesStatusBar)
 {
-    [System.Collections.ArrayList]$Script:Resources = "DomainControllers", "ProxyServers", "DnsServers", "CrlServers", "Wpad_PacFileServers", "TierXManagementServers", "SqlServers", "WebServers", "FileServers", "KeyManagementServers", "BackupServers", "ClusteredNodesAndManagementAddresses", "ExternalVpnEndpoints", "DirectAccessServers", "TrustedDhcpSubnets", "ServerRoleAdministrationServers", "MicrosoftSubnets"| Sort-Object
-    foreach ($Resource in $Resources)
-    {
-        New-Variable -Name $Resource -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script"
-    }
-    New-Variable -Name "ProxyServerPorts" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script"
     # Version 0.7.0 domain resources
-    [System.Collections.ArrayList]$Script:DomainControllers += "127.0.0.1", "SERVERNAME"
-    [System.Collections.ArrayList]$Script:ProxyServerPorts += "8080"
-    [System.Collections.ArrayList]$Script:ProxyServers += "LocalSubnet", "Intranet"
-    [System.Collections.ArrayList]$Script:DnsServers += $Script:DomainControllers # Specify these if you do not have DNS on each domain controller or you have additional DNS servers
-    [System.Collections.ArrayList]$Script:CrlServers += "LocalSubnet", "Intranet"
-    [System.Collections.ArrayList]$Script:Wpad_PacFileServers += "LocalSubnet", "Intranet"
-    [System.Collections.ArrayList]$Script:TierXManagementServers += "LocalSubnet", "Intranet" # These are used in tier X firewall baselines to define which computers can manage the device at a particular tier
-    [System.Collections.ArrayList]$Script:SqlServers += "127.0.0.4"
-    [System.Collections.ArrayList]$Script:WebServers += "LocalSubnet", "Intranet"
-    [System.Collections.ArrayList]$Script:FileServers += "LocalSubnet", "Intranet"
-    [System.Collections.ArrayList]$Script:KeyManagementServers += "LocalSubnet", "Intranet"
-    [System.Collections.ArrayList]$Script:BackupServers += "127.0.0.1"
-    [System.Collections.ArrayList]$Script:ClusteredNodesAndManagementAddresses += "LocalSubnet", "Intranet"
-    [System.Collections.ArrayList]$Script:ExternalVpnEndpoints += "127.0.0.2 -  127.0.0.3" # This is the externally resolvable IPSec hostname or address
-    [System.Collections.ArrayList]$Script:DirectAccessServers += "127.0.0.128/25" # This is the externally resolvable hostname or address of the DirectAccess IPHTTPS endpoint
-    [System.Collections.ArrayList]$Script:TrustedDhcpSubnets += "Any" # This is client enterprise subnets and includes subnets issued by the VPN server, "Predefined set of computers" cannot be used here
+    $DomainControllers = "127.0.0.1","SERVERNAME"
+    $ProxyServerPorts = "8080"
+    $ProxyServers = "LocalSubnet","Intranet"
+    $DnsServers = $DomainControllers # Specify these if you do not have DNS on each domain controller or you have additional DNS servers
+    $CrlServers = "LocalSubnet","Intranet"
+    $Wpad_PacFileServers = "LocalSubnet","Intranet"
+    $TierXManagementServers = "LocalSubnet","Intranet" # These are used in tier X firewall baselines to define which computers can manage the device at a particular tier
+    $SqlServers = "127.0.0.4"
+    $WebServers = "LocalSubnet","Intranet"
+    $FileServers = "LocalSubnet","Intranet"
+    $KeyManagementServers = "LocalSubnet","Intranet"
+    $BackupServers = "127.0.0.1"
+    $ClusteredNodesAndManagementAddresses = "LocalSubnet","Intranet"
+    $ExternalVpnEndpoints = "127.0.0.2 -  127.0.0.3" # This is the externally resolvable IPSec hostname or address
+    $DirectAccessServers = "127.0.0.128/25" # This is the externally resolvable hostname or address of the DirectAccess IPHTTPS endpoint
+    $TrustedDhcpSubnets = "Any" # This is client enterprise subnets and includes subnets issued by the VPN server, "Predefined set of computers" cannot be used here
     # END of version 0.7.0 domain resources
     # Version 0.8.0 domain resources
-    [System.Collections.ArrayList]$Script:ServerRoleAdministrationServers += "LocalSubnet", "Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
+    $ServerRoleAdministrationServers = "LocalSubnet","Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
     # END of version 0.8.0 domain resources
     # Version 0.9.0 domain resources
-    [System.Collections.ArrayList]$Script:MicrosoftSubnets += "13.64.0.0 - 13.107.255.255", "40.74.0.0 - 40.125.127.255", "52.145.0.0 - 52.191.255.255", "64.4.0.0 - 64.4.63.255", "65.52.0.0 - 65.55.255.255", "104.40.0.0 - 104.47.255.255", "111.221.64.0 - 111.221.127.255", "131.253.61.0 - 131.253.255.255", "134.170.0.0 - 134.170.255.255", "137.117.0.0 - 137.117.255.255", "157.54.0.0 - 157.60.255.255", "207.46.0.0 - 207.46.255.255"
+    $MicrosoftSubnets += "13.64.0.0 - 13.107.255.255", "40.74.0.0 - 40.125.127.255", "52.145.0.0 - 52.191.255.255", "64.4.0.0 - 64.4.63.255", "65.52.0.0 - 65.55.255.255", "104.40.0.0 - 104.47.255.255", "111.221.64.0 - 111.221.127.255", "131.253.61.0 - 131.253.255.255", "134.170.0.0 - 134.170.255.255", "137.117.0.0 - 137.117.255.255", "157.54.0.0 - 157.60.255.255", "207.46.0.0 - 207.46.255.255"
     # END of version 0.9.0 domain resources
-    [System.Collections.ObjectModel.ObservableCollection[Object]]$Script:ResourcesAndProxyPorts = $Resources + "ProxyServerPorts"| Sort-Object
+
+    $Resources = "DomainControllers","ProxyServers","DnsServers","CrlServers","Wpad_PacFileServers","TierXManagementServers","SqlServers","WebServers","FileServers","KeyManagementServers","BackupServers","ClusteredNodesAndManagementAddresses","ExternalVpnEndpoints","DirectAccessServers","TrustedDhcpSubnets","ServerRoleAdministrationServers", "MicrosoftSubnets"
+    $InitialStatusBarText = $DefaultDomainResourcesStatusBar.Text
+    foreach ($Resource in $Resources)
+    {
+        $DefaultDomainResourcesStatusBar.Text = "$($Language[36]) $Resource"
+        $Addresses = @()
+        $Names = (Get-Variable -Name $Resource).Value
+        foreach ($Name in $Names.replace(" ",""))
+        {
+            switch -Wildcard ($Name)
+            {
+                "*/*"           {
+                                    $Addresses += $Name # A forward slash indicates a subnet has been specified
+                                    break
+                                }
+                "LocalSubnet"   {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "Intranet"      {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "DNS"           {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "DHCP"          {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "DefaultGateway"{
+                                    $Addresses += $Name
+                                    break
+                                }
+                "Internet"      {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "Any"           {
+                                    $Addresses += $Name
+                                    break
+                                }
+                "*-*"           {
+                                    try
+                                    {
+                                        if ([ipaddress]$Name.Split("-")[0] -and [ipaddress]$Name.Split("-")[1])
+                                        {
+                                            $Addresses += $Name # If each side of the hyphen is an IP address then a range has been specified
+                                        }
+                                    }
+                                    catch [Management.Automation.PSInvalidCastException]
+                                    {
+                                        $Addresses += AttemptResolveDnsName $Name
+                                    }
+                                }
+                default         {
+                                    try
+                                    {
+                                        if ([ipaddress]$Name)
+                                        {
+                                            $Addresses += $Name
+                                        }
+                                    }
+                                    catch [Management.Automation.PSInvalidCastException]
+                                    {
+                                        $Addresses += AttemptResolveDnsName $Name
+                                    }
+                                }
+            }
+        }
+        if (-not $Addresses)
+        {
+            $Addresses = @("127.0.0.1")
+        }
+        New-Variable -Name $Resource -Value ([System.Collections.ArrayList]$Addresses) -Scope "Script"
+    }
+    $Ports = @()
+    foreach ($ProxyServerPort in $ProxyServerPorts)
+    {
+        try
+        {
+            $ProxyServerPort = $ProxyServerPort.replace(" ", "")
+            if ($ProxyServerPort -like "*-*" -and (($ProxyServerPort).Split("-").Count -eq 2))
+            {
+                if (([int]($ProxyServerPort).Split("-")[0] -in 1..65535) -and ([int]($ProxyServerPort).Split("-")[1] -in 1..65535) -and ([int]($ProxyServerPort).Split("-")[0] -lt [int]($ProxyServerPort).Split("-")[1]))
+                {
+                    $Ports += $ProxyServerPort
+                }
+                else
+                {
+                    PopUpMessage -Message ($ProxyServerPort + $Language[38])
+                }
+            }
+            elseif ([int]$ProxyServerPort -in 1..65535)
+            {
+                $Ports += $ProxyServerPort
+            }
+            else
+            {
+                PopUpMessage -Message ($ProxyServerPort + $Language[38])
+            }
+        }
+        catch
+        {
+            PopUpMessage -Message ($ProxyServerPort + $Language[38])
+        }
+    }
+    if (-not $Ports)
+    {
+        $Ports = @("Any")
+    }
+    New-Variable -Name "ProxyServerPorts" -Value ([System.Collections.ArrayList]$Ports) -Scope "Script"
+    [System.Collections.ArrayList]$Script:ResourcesAndProxyPorts = $Resources + "ProxyServerPorts"| Sort-Object
+    [System.Collections.ArrayList]$Script:Resources = $Resources| Sort-Object
+    $DefaultDomainResourcesStatusBar.Text = $InitialStatusBarText
 }
 
-function GroupPoliciesWithExistingFirewallRules
+function GroupPoliciesWithExistingFirewallRules ($GroupPoliciesWithExistingFirewallRulesStatusBar)
 {
     $GroupPolicyObjects = (Get-GPO -All).DisplayName
     foreach ($GroupPolicyObject in $GroupPolicyObjects)
@@ -88,7 +198,7 @@ function GroupPoliciesWithExistingFirewallRules
         if (Get-NetFirewallRule -PolicyStore "$DomainName\$GroupPolicyObject" -ErrorAction SilentlyContinue)
         {
             $ProgressBar.Value = ($GroupPolicyObjectIndex * ($OneHundredPercent/$GroupPolicyObjects.Count))
-            $StatusBar.Text = "Scanning policy $GroupPolicyObject"
+            $GroupPoliciesWithExistingFirewallRulesStatusBar.Text = "$($Language[35]) $GroupPolicyObject"
             [string[]]$Script:GroupPoliciesWithExistingFirewallRules += $GroupPolicyObject
         }
     }
@@ -239,7 +349,7 @@ function AttemptResolveDnsName ($Name)
     }
     catch
     {
-        PopUpMessage -Message "The hostname`r`n$Name`r`ncould not be resolved,check connectivity`r`nto the DNS infrastructure and ensure`r`nthere is a valid host record for`r`n$Name."
+        PopUpMessage -Message ($Name + $Language[37])
     }
 }
 
@@ -296,10 +406,6 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
             }
         }
     }
-    if ($null -eq $DomainControllers)
-    {
-        DefaultDomainResources
-    }
     $AddResourceForm = New-Object -TypeName "System.Windows.Forms.Form" -Property @{
         FormBorderStyle = "FixedDialog"
         StartPosition = "CenterParent"
@@ -353,35 +459,42 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
     {
         $AddResourceAcceptButton.Add_Click(
         {
+            function AddResourceValue ($AddResourceValueSource)
+            {
+                foreach ($AddResourceValue in $AddResourceValues)
+                {
+                    if ($AddResourceValueSource -in $AddResourceValue.Items)
+                    {
+                        PopUpMessage -Message "`"$($AddResourceValueSource)`" is already in the list."
+                    }
+                    else
+                    {
+                        $AddResourceValue.DataSource.Add($AddResourceValueSource)
+                        ResetDataSource -ResetDataSourceData $AddResourceValue
+                    }
+                }
+                foreach ($AddResourceValue in $AddResourceValues)
+                {
+                    if ("Any" -in $AddResourceValue.Items -and $AddResourceValue.Items.Count -gt 1)
+                    {
+                        $AddResourceValue.DataSource.Remove("Any")
+                        ResetDataSource -ResetDataSourceData $AddResourceValue
+                    }
+                }
+            }
             if ($AddResourceComboBox1.SelectedItem -eq "Any")
             {
                 AnyResource
             }
+            elseif ($AddResourceComboBox1.SelectedItem -eq "Proxy server ports")
+            {
+                foreach ($ProxyServerPort in $ProxyServerPorts)
+                {
+                    AddResourceValue -AddResourceValueSource $ProxyServerPort
+                }
+            }
             else
             {
-                function AddResourceValue
-                {
-                    foreach ($AddResourceValue in $AddResourceValues)
-                    {
-                        if ($TextBoxValue -in $AddResourceValue.Items)
-                        {
-                            PopUpMessage -Message "`"$($TextBoxValue)`" is already in the list."
-                        }
-                        else
-                        {
-                            $AddResourceValue.DataSource.Add($TextBoxValue)
-                            ResetDataSource -ResetDataSourceData $AddResourceValue
-                        }
-                    }
-                    foreach ($AddResourceValue in $AddResourceValues)
-                    {
-                        if ("Any" -in $AddResourceValue.Items -and $AddResourceValue.Items.Count -gt 1)
-                        {
-                            $AddResourceValue.DataSource.Remove("Any")
-                            ResetDataSource -ResetDataSourceData $AddResourceValue
-                        }
-                    }
-                }
                 try
                 {
                     $TextBoxValue = $AddResourceTextBox.Text.replace(" ", "")
@@ -389,7 +502,7 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
                     {
                         if (([int]($TextBoxValue).Split("-")[0] -in 1..65535) -and ([int]($TextBoxValue).Split("-")[1] -in 1..65535) -and ([int]($TextBoxValue).Split("-")[0] -lt [int]($TextBoxValue).Split("-")[1]))
                         {
-                            AddResourceValue
+                            AddResourceValue -AddResourceValueSource $TextBoxValue
                         }
                         else
                         {
@@ -398,7 +511,7 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
                     }
                     elseif ([int]$TextBoxValue -in 1..65535)
                     {
-                        AddResourceValue
+                        AddResourceValue -AddResourceValueSource $TextBoxValue
                     }
                     else
                     {
@@ -420,7 +533,7 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
             BackColor = "WhiteSmoke"
             DropDownStyle = "DropDownList"
         }
-        $AddResourceComboBox1.DataSource = @("Port number", "Any")
+        $AddResourceComboBox1.DataSource = @("Port number", "Proxy server ports", "Any")
         $AddResourceComboBox1.Add_SelectedValueChanged(
         {
             switch ($AddResourceComboBox1.SelectedItem)
@@ -429,6 +542,16 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
                 {
                     $AddResourcePanel.Controls.Remove($AddResourceTextBox)
                     $AddResourceStatusBar.Text = "Add `"Any IP address.`" "
+                    break
+                }
+                "Proxy server ports"
+                {   
+                    if ($null -eq $DomainControllers)
+                    {
+                        DefaultDomainResources -DefaultDomainResourcesStatusBar $AddResourceStatusBar
+                    }
+                    $AddResourcePanel.Controls.Remove($AddResourceTextBox)
+                    $AddResourceStatusBar.Text = "Add proxy server ports."
                     break
                 }
                 "Port number"
@@ -630,7 +753,11 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
                     break
                 }
                 "Domain resource"
-                {
+                {   
+                    if ($null -eq $DomainControllers)
+                    {
+                        DefaultDomainResources -DefaultDomainResourcesStatusBar $AddResourceStatusBar
+                    }
                     $AddResourceComboBox2.DataSource = $Resources
                     $AddResourcePanel.Controls.Remove($AddResourceTextBox)
                     $AddResourcePanel.Controls.Add($AddResourceComboBox2)
@@ -1441,8 +1568,7 @@ function FindAllPoliciesWithFirewallRulesPage
             }
             $FindAllPoliciesWithFirewallRulesBottomButtonPanel.Controls.Add($ProgressBar)
             $FindAllPoliciesWithFirewallRulesGpoListBox.Hide()
-            $StatusBar = $FindAllPoliciesWithFirewallRulesStatusBar
-            GroupPoliciesWithExistingFirewallRules
+            GroupPoliciesWithExistingFirewallRules -GroupPoliciesWithExistingFirewallRulesStatusBar $FindAllPoliciesWithFirewallRulesStatusBar
             $FindAllPoliciesWithFirewallRulesBottomButtonPanel.Controls.Remove($ProgressBar)
         }
         foreach ($FindAllPoliciesWithFirewallRules in $Script:GroupPoliciesWithExistingFirewallRules)
@@ -1505,10 +1631,6 @@ function FindAllPoliciesWithFirewallRulesPage
 
 function UpdateDomainResourcesPage
 {
-    if ($null -eq $DomainControllers)
-    {
-        DefaultDomainResources
-    }
     $ToolPageForm = New-Object -TypeName "System.Windows.Forms.Form" -Property @{
         FormBorderStyle = "Sizable"
         Location = $ToolSelectionPageForm.Location
@@ -1586,7 +1708,7 @@ function UpdateDomainResourcesPage
     {
         $MouseHoverIndex = $UpdateDomainResourcesResourcesListBox.IndexFromPoint($UpdateDomainResourcesResourcesListBox.PointToClient([System.Windows.Forms.Control]::MousePosition))
         $UpdateDomainResourcesToolTip.Active = $false
-        $UpdateDomainResourcesToolTip.AutoPopDelay = [math]::Sqrt(($UpdateDomainResourcesToolTips[$MouseHoverIndex]).Length) * 800 
+        $UpdateDomainResourcesToolTip.AutoPopDelay = [math]::Sqrt(($UpdateDomainResourcesToolTips[$MouseHoverIndex]).Length) * $ToolTipAutoPopDelayMultiplier
         $UpdateDomainResourcesToolTip.SetToolTip($UpdateDomainResourcesResourcesListBox, $UpdateDomainResourcesToolTips[$MouseHoverIndex])
         $UpdateDomainResourcesToolTip.Active = $true
     })
@@ -1707,8 +1829,7 @@ function EditExistingFirewallRulesPage
                 }
                 $EditExistingFirewallRulesBottomButtonPanel.Controls.Add($ProgressBar)
                 $EditExistingFirewallRulesGpoListBox.Hide()
-                $StatusBar = $EditExistingFirewallRulesStatusBar
-                GroupPoliciesWithExistingFirewallRules
+                GroupPoliciesWithExistingFirewallRules -GroupPoliciesWithExistingFirewallRulesStatusBar $EditExistingFirewallRulesStatusBar
                 $EditExistingFirewallRulesBottomButtonPanel.Controls.Remove($ProgressBar)
                 $EditExistingFirewallRulesGroupPolicies = $Script:GroupPoliciesWithExistingFirewallRules
             }
@@ -2370,7 +2491,7 @@ function ScanComputerForBlockedConnectionsPage
                 }
                 if ($ScanComputerForBlockedConnectionsRule.Service.Count -gt 1)
                 {
-                    ResourceSelection -ResourceSelectionData $ScanComputerForBlockedConnectionsRule.Service -ResourceSelectionStatusBarText $Language[27] -CurrentForm $ToolPageForm -ResourceSelectionSelectionMode "One"
+                    ResourceSelection -ResourceSelectionData $ScanComputerForBlockedConnectionsRule.Service -ResourceSelectionStatusBarText "$($Language[27]) $($ScanComputerForBlockedConnectionsRule.DisplayName)." -CurrentForm $ToolPageForm -ResourceSelectionSelectionMode "One"
                     $Service = $SelectedItems
                 }
                 else
@@ -2627,8 +2748,7 @@ function ExportExistingRulesToPowerShellCommandsPage
             }
             $ExportExistingRulesToPowerShellCommandsBottomButtonPanel.Controls.Add($ProgressBar)
             $ExportExistingRulesToPowerShellCommandsGpoListBox.Hide()
-            $StatusBar = $ExportExistingRulesToPowerShellCommandsStatusBar
-            GroupPoliciesWithExistingFirewallRules
+            GroupPoliciesWithExistingFirewallRules -GroupPoliciesWithExistingFirewallRulesStatusBar $ExportExistingRulesToPowerShellCommandsStatusBar
             $ExportExistingRulesToPowerShellCommandsBottomButtonPanel.Controls.Remove($ProgressBar)
         }
         foreach ($GroupPolicy in $Script:GroupPoliciesWithExistingFirewallRules)
@@ -2882,6 +3002,7 @@ function MainThread
     $FontSizeDivisor = 45
     $MarginDivisor = 20
     $PaddingDivisor = 125
+    $ToolTipAutoPopDelayMultiplier = 800
     $ToolSelectionPageForm = New-Object -TypeName "System.Windows.Forms.Form" -Property @{
         FormBorderStyle = "Sizable"
         StartPosition = "CenterScreen"
@@ -2979,6 +3100,7 @@ function MainThread
         }  
     })
     $ExportExistingRulesToPowerShellCommandsToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
+    $ExportExistingRulesToPowerShellCommandsToolTip.AutoPopDelay = [math]::Sqrt(($Language[2]).Length) * $ToolTipAutoPopDelayMultiplier
     $ExportExistingRulesToPowerShellCommandsToolTip.SetToolTip($ExportExistingRulesToPowerShellCommandsButton, $Language[2])
     $FindAllPoliciesWithFirewallRulesButton = New-Object -TypeName "System.Windows.Forms.Button" -Property @{
         Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin
@@ -2997,6 +3119,7 @@ function MainThread
         } 
     })
     $FindAllPoliciesWithFirewallRulesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
+    $FindAllPoliciesWithFirewallRulesToolTip.AutoPopDelay = [math]::Sqrt(($Language[4]).Length) * $ToolTipAutoPopDelayMultiplier
     $FindAllPoliciesWithFirewallRulesToolTip.SetToolTip($FindAllPoliciesWithFirewallRulesButton, $Language[4])
     $UpdateDomainResourcesButton = New-Object -TypeName "System.Windows.Forms.Button" -Property @{
         Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin
@@ -3007,14 +3130,17 @@ function MainThread
     $UpdateDomainResourcesButton.Text = $Language[5]
     $UpdateDomainResourcesButton.Add_Click(
     {
+        if ($null -eq $DomainControllers)
+        {
+            DefaultDomainResources -DefaultDomainResourcesStatusBar $ToolSelectionPageStatusBar
+        }
         $ToolSelectionPageForm.Hide()
         UpdateDomainResourcesPage
         $ToolSelectionPageForm.Show()   
     })
-    $UpdateDomainResourcesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip" -Property @{
-        AutoPopDelay = 7500
-    }
+    $UpdateDomainResourcesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
     $UpdateDomainResourcesToolTip.SetToolTip($UpdateDomainResourcesButton, $Language[6])
+    $UpdateDomainResourcesToolTip.AutoPopDelay = [math]::Sqrt(($UpdateDomainResourcesToolTip.GetToolTip).Length) * $ToolTipAutoPopDelayMultiplier
     $EditExistingFirewallRulesButton = New-Object -TypeName "System.Windows.Forms.Button" -Property @{
         Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin
         BackColor = "DarkSlateGray"
@@ -3031,9 +3157,8 @@ function MainThread
             $ToolSelectionPageForm.Show()
         }  
     })
-    $EditExistingFirewallRulesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip" -Property @{
-        AutoPopDelay = 7500
-    }
+    $EditExistingFirewallRulesToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
+    $EditExistingFirewallRulesToolTip.AutoPopDelay = [math]::Sqrt(($Language[8]).Length) * $ToolTipAutoPopDelayMultiplier
     $EditExistingFirewallRulesToolTip.SetToolTip($EditExistingFirewallRulesButton, $Language[8])
     $ScanComputerForBlockedConnectionsButton = New-Object -TypeName "System.Windows.Forms.Button" -Property @{
         Margin = $ExportExistingRulesToPowerShellCommandsButton.Margin
@@ -3049,6 +3174,7 @@ function MainThread
         $ToolSelectionPageForm.Show()   
     })
     $ScanComputerForBlockedConnectionsToolTip = New-Object -TypeName "System.Windows.Forms.ToolTip"
+    $ScanComputerForBlockedConnectionsToolTip.AutoPopDelay = [math]::Sqrt(($Language[10]).Length) * $ToolTipAutoPopDelayMultiplier
     $ScanComputerForBlockedConnectionsToolTip.SetToolTip($ScanComputerForBlockedConnectionsButton, $Language[10])
     $ToolSelectionPageStatusBar = New-Object -TypeName "System.Windows.Forms.StatusBar" -Property @{
         Dock = "Bottom"
@@ -3104,7 +3230,7 @@ $English = @(
 "Back"
 "Select"
 "Exit"
-"Select the service to be used for $($ScanComputerForBlockedConnectionsRule.DisplayName)."
+"Select the service to be used for"
 "Remove"
 "Add"
 "NsLookup"
@@ -3112,6 +3238,10 @@ $English = @(
 "Host name not found."
 "Nothing selected."
 "Group policy module not found.`r`nThis tool is not available without this module.`r`Please install the RSAT tools on clients or add`r`nthe group policy management feature on servers."
+"Scanning policy"
+"Updating resource"
+" could not be resolved,check connectivity to`r`nthe DNS infrastructure and ensure there is a valid host record."
+" is an invalid proxy port."
 )
 
 $EnglishUpdateDomainResourcesToolTips = @(
@@ -3137,12 +3267,11 @@ $EnglishUpdateDomainResourcesToolTips = @(
 
 switch -Wildcard ((Get-UICulture).Name)
 {
-    "en-*"
+    default
     {
         $Language = $English
         $PortData = $EnglishPortData
         $UpdateDomainResourcesToolTips = $EnglishUpdateDomainResourcesToolTips
-        break
     }
 }
 
