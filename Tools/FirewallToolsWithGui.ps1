@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.13
+    Build 1809.14
 #>
 
 class WindowsFirewallRule
@@ -2170,8 +2170,8 @@ function ScanComputerForBlockedConnectionsPage
                                     [array]$DiagnosticResults += $NetworkConnectivityJob.Value.Exception.InnerException
                                 }
                                 PopUpMessage -Message $DiagnosticResults
-                                throw "Connectivity test failed."   
                             }
+                            throw "Connectivity test failed."   
                         }
                         if ((Get-Date) -gt $WaitTime)
                         {
@@ -2446,7 +2446,7 @@ function ScanComputerForBlockedConnectionsPage
                 }
                 elseif ($error[0].Exception.Message -eq "Connectivity test failed.")
                 {
-                    PopUpMessage -Message "Connectivity test failed, is`r`n$Computer`r`navalable on the network and are`r`nTCP ports 135,5985 and 49152-65535`r`nopen from this computer."
+                    PopUpMessage -Message "Connectivity test failed, is`r`n$Computer`r`navailable on the network and are`r`nTCP ports 135,5985 and 49152-65535`r`nopen from this computer."
                 }
                 elseif ($error[0].Exception.Message -eq "No events were found that match the specified selection criteria.")
                 {
