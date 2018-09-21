@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.12
+    Build 1809.13
 #>
 
 class WindowsFirewallRule
@@ -82,64 +82,74 @@ function DefaultDomainResources ($DefaultDomainResourcesStatusBar)
         {
             switch -Wildcard ($Name)
             {
-                "*/*"           {
-                                    $Addresses += $Name # A forward slash indicates a subnet has been specified
-                                    break
-                                }
-                "LocalSubnet"   {
-                                    $Addresses += $Name
-                                    break
-                                }
-                "Intranet"      {
-                                    $Addresses += $Name
-                                    break
-                                }
-                "DNS"           {
-                                    $Addresses += $Name
-                                    break
-                                }
-                "DHCP"          {
-                                    $Addresses += $Name
-                                    break
-                                }
-                "DefaultGateway"{
-                                    $Addresses += $Name
-                                    break
-                                }
-                "Internet"      {
-                                    $Addresses += $Name
-                                    break
-                                }
-                "Any"           {
-                                    $Addresses += $Name
-                                    break
-                                }
-                "*-*"           {
-                                    try
-                                    {
-                                        if ([ipaddress]$Name.Split("-")[0] -and [ipaddress]$Name.Split("-")[1])
-                                        {
-                                            $Addresses += $Name # If each side of the hyphen is an IP address then a range has been specified
-                                        }
-                                    }
-                                    catch [Management.Automation.PSInvalidCastException]
-                                    {
-                                        $Addresses += AttemptResolveDnsName $Name
-                                    }
-                                }
-                default         {
-                                    try
-                                    {
-                                        if ([ipaddress]$Name)
-                                        {
-                                            $Addresses += $Name
-                                        }
-                                    }
-                                    catch [Management.Automation.PSInvalidCastException]
-                                    {
-                                        $Addresses += AttemptResolveDnsName $Name
-                                    }
-                                }
+                "*/*"
+                { # A forward slash indicates a subnet has been specified
+                    $Addresses += $Name
+                    break
+                }
+                "LocalSubnet"
+                {
+                    $Addresses += $Name
+                    break
+                }
+                "Intranet"
+                {
+                    $Addresses += $Name
+                    break
+                }
+                "DNS"
+                {
+                    $Addresses += $Name
+                    break
+                }
+                "DHCP"
+                {
+                    $Addresses += $Name
+                    break
+                }
+                "DefaultGateway"
+                {
+                    $Addresses += $Name
+                    break
+                }
+                "Internet"
+                {
+                    $Addresses += $Name
+                    break
+                }
+                "Any"
+                {
+                    $Addresses += $Name
+                    break
+                }
+                "*-*"
+                {
+                    try
+                    {
+                        if ([ipaddress]$Name.Split("-")[0] -and [ipaddress]$Name.Split("-")[1])
+                        { # If each side of the hyphen is an IP address then a range has been specified
+                            $Addresses += $Name
+                        }
+                    }
+                    catch [Management.Automation.PSInvalidCastException]
+                    {
+                        $Addresses += AttemptResolveDnsName $Name
+                    }
+                }
+                default
+                {
+                    try
+                    {
+                        if ([ipaddress]$Name)
+                        {
+                            $Addresses += $Name
+                        }
+                    }
+                    catch [Management.Automation.PSInvalidCastException]
+                    {
+                        $Addresses += AttemptResolveDnsName $Name
+                    }
+                }
             }
         }
         if (-not $Addresses)
