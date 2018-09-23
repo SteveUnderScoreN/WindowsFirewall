@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.14
+    Build 1809.15
 #>
 
 class WindowsFirewallRule
@@ -2311,7 +2311,7 @@ function ScanComputerForBlockedConnectionsPage
                     }
                 }
                 else
-                { # This will search for applications on the target computer, other methods to achieve this use commands that will not run in constrained mode and as this runs in a remote session this scripts signature is invalid
+                { # This will search for applications on the target computer, other methods to achieve this use commands that will not run in constrained mode and as this runs in a remote session this script's signature is invalid
                     $HarddiskVolumes = @{}
                     foreach ($FilteredNetworkConnection in $FilteredNetworkConnections.Where({$_.Application -like "\device\*"}))
                     {
@@ -2416,8 +2416,6 @@ function ScanComputerForBlockedConnectionsPage
                         }
                     }
                 }
-                $ComputerCimSession| Remove-CimSession
-                $ComputerPsSession| Remove-PSSession
                 $ScanComputerForBlockedConnectionsDataGridView.DataSource = $FilteredNetworkConnections
                 $ScanComputerForBlockedConnectionsDataGridView.Columns["ProcessId"].Visible = $false
                 $ScanComputerForBlockedConnectionsDataGridView.Columns["SourcePort"].Visible = $false
@@ -2438,6 +2436,44 @@ function ScanComputerForBlockedConnectionsPage
                 $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridViewButtonPanel)
                 $ScanComputerForBlockedConnectionsDataGridView.Focus()
                 UpdateDataSourceForComboBoxCell -ArrayList $FilteredNetworkConnections -DataGridView $ScanComputerForBlockedConnectionsDataGridView
+                foreach ($FilteredNetworkConnectionApplication in (($FilteredNetworkConnections.Application).Where({$_ -ne "System"})| Sort-Object -Unique))
+                {
+                    if (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                        $Acl = Get-Acl -Path $args[0]
+                        if($Acl.Owner -notin $args[1], $args[2], $args[3], $args[4], $args[5])
+                        {
+                            return $true
+                        }
+                        else
+                        {
+                            foreach ($Access in $Acl.Access)
+                            {
+                                if ($Access.IdentityReference -notin $args[1], $args[2], $args[3], $args[4], $args[5], $args[6], $args[7])
+                                {
+                                    foreach ($FileSystemRight in ($Access.FileSystemRights -split ", "))
+                                    {
+                                        if ($FileSystemRight -in "Delete", "FullControl", "Modify", "TakeOwnership")
+                                        {
+                                            return $true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } -ArgumentList ($FilteredNetworkConnectionApplication -replace "%ProgramData%", $ProgramData  -replace "%ProgramFiles%", $ProgramFiles  -replace "%ProgramFiles% (x86)", $ProgramFilesX86 -replace "%SystemRoot%", $SystemRoot), $Language[39], $Language[40], $Language[41], $Language[42], $Language[43], $Language[44], $Language[45])
+                    {
+                        foreach ($ScanComputerForBlockedConnectionsDataGridViewRow in $ScanComputerForBlockedConnectionsDataGridView.Rows)
+                        {
+                            if ($ScanComputerForBlockedConnectionsDataGridViewRow.Cells[$ScanComputerForBlockedConnectionsDataGridView.Columns["Application"].Index].Value -eq $FilteredNetworkConnectionApplication)
+                            {
+                                $ScanComputerForBlockedConnectionsDataGridViewRow.Cells[$ScanComputerForBlockedConnectionsDataGridView.Columns["Application"].Index].Style.Backcolor = "Yellow"
+                                $ScanComputerForBlockedConnectionsDataGridViewRow.Cells[$ScanComputerForBlockedConnectionsDataGridView.Columns["Application"].Index].ToolTipText = $Language[46]
+                            }
+                        }
+                    }
+                }
+                $ComputerCimSession| Remove-CimSession
+                $ComputerPsSession| Remove-PSSession
             }
             catch [System.Management.Automation.RuntimeException]
             {
@@ -3212,7 +3248,7 @@ $EnglishPortData = @{
 "445-TCP" = "SMB", "File sharing, can be used to exfiltrate data and should not be used to the Internet.`r`nClients should only accept inbound connections from tier management resources.`r`nCan be used by malware compromise computers across the network."
 }
 
-$English = @(
+$English = @( # `n and `r`n are used for new lines
 "Windows firewall tool selection"
 "Export existing`n rules to`nPowerShell commands"
 "Use this tool to query a domain for policies`nthat have existing firewall rules and then`nexport a policy to a PowerShell script.`n"
@@ -3252,6 +3288,14 @@ $English = @(
 "Updating resource"
 " could not be resolved,check connectivity to`r`nthe DNS infrastructure and ensure there is a valid host record."
 " is an invalid proxy port."
+"BUILTIN\Administrators"
+"NT AUTHORITY\SYSTEM"
+"NT AUTHORITY\LOCAL SERVICE"
+"NT AUTHORITY\NETWORK SERVICE"
+"NT SERVICE\TrustedInstaller"
+"APPLICATION PACKAGE AUTHORITY\ALL APPLICATION PACKAGES"
+"APPLICATION PACKAGE AUTHORITY\ALL RESTRICTED APP PACKAGES"
+"This security on this file appears to grant delete rights to non privileged accounts, please review the security.`r`nMalware could overwrite this application and gain access to the network resources allowed to this application.`r`nConsider moving this application to a location where standard users do not have delete rights."
 )
 
 $EnglishUpdateDomainResourcesToolTips = @(
