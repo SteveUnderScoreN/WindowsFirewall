@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.15
+    Build 1809.16
 #>
 
 class WindowsFirewallRule
@@ -1284,6 +1284,7 @@ function EditFirewallRules
     $EditFirewallRulesDataGridView.Columns[0].DefaultCellStyle.Alignment = "TopLeft"
     $ColumnIndex = 1
     $EmptyWindowsFirewallRule = New-Object -TypeName "WindowsFirewallRule"
+    ColumnHeaderContextMenuStrip -DataGridView $EditFirewallRulesDataGridView
     foreach ($PropertyName in ($EmptyWindowsFirewallRule.PsObject.Properties).name)
     {
         if ($PropertyName -ne "PolicyStore" -and $PropertyName -ne "Name")
@@ -1304,9 +1305,11 @@ function EditFirewallRules
                 $EditFirewallRulesDataGridView.Columns[$ColumnIndex].Name = $PropertyName
             }
             $EditFirewallRulesDataGridView.Columns[$ColumnIndex].DefaultCellStyle.Alignment = "TopLeft"
+            $EditFirewallRulesDataGridView.Columns[$ColumnIndex].HeaderCell.ContextMenuStrip = $ColumnHeaderContextMenuStrip
             $ColumnIndex ++
         }
     }
+    Set-Variable -Name "DataGridView" -Value $DataGridView -Scope 2
     $EditFirewallRulesDataGridView.Columns["DisplayName"].Frozen = $true
     $EditFirewallRulesDataGridView.Columns["DisplayName"].Width = 150
     $EditFirewallRulesDataGridView.Columns["Group"].Width = 55
@@ -1556,6 +1559,55 @@ function NsLookup ($IpAddresses)
             PopUpMessage -Message "$IpAddress - $($Language[32])"
         }
     }
+}
+
+function ColumnHeaderContextMenuStrip ($DataGridView)
+{
+    Set-Variable -Name "DataGridView" -Value $DataGridView -Scope 1
+    New-Variable -Name "ColumnHeaderContextMenuStrip" -Value (New-Object -TypeName "System.Windows.Forms.ContextMenuStrip") -Scope 1
+    [void]$ColumnHeaderContextMenuStrip.Items.Add($Language[47])
+    [void]$ColumnHeaderContextMenuStrip.Items.Add($Language[48])
+    [void]$ColumnHeaderContextMenuStrip.Items.Add($Language[49])
+    $ColumnHeaderContextMenuStrip.Add_Opening(
+    {
+        Set-Variable -Name "MousePosition" -Value ($DataGridView.PointToClient([System.Windows.Forms.Control]::MousePosition)) -Scope 1
+    })
+    $ColumnHeaderContextMenuStrip.Add_ItemClicked(
+    {
+        $ClickedColumnHeaderIndex = $DataGridView.HitTest($MousePosition.X,$MousePosition.Y).ColumnIndex
+        switch (($_.ClickedItem).Text)
+        {
+            $Language[47]
+            {
+               $DataGridView.Columns[$ClickedColumnHeaderIndex].Visible = $false 
+            }
+            $Language[48]
+            {
+                if ($DataGridView.Columns[$ClickedColumnHeaderIndex].Frozen)
+                {
+                    $DataGridView.Columns[0].Frozen = $false
+                    $DataGridView.Columns["DisplayName"].Frozen = $true
+                }
+                else
+                {
+                    $DataGridView.Columns[$ClickedColumnHeaderIndex].Frozen = $true
+                }
+            }
+            $Language[49]
+            {
+                $DataGridView.Columns[0].Frozen = $false
+                $DataGridView.Columns["DisplayName"].Frozen = $true
+                foreach ($Column in $DataGridView.Columns)
+                {
+                    if ($Column.Name -notin "SourcePort", "ProcessId")
+                    {
+                        $Column.Visible = $true
+                    }
+                }
+            }
+        }
+        $DataGridView.Size = $DataGridView.PreferredSize
+    })
 }
 
 function FindAllPoliciesWithFirewallRulesPage
@@ -2637,6 +2689,7 @@ function ScanComputerForBlockedConnectionsPage
             if ((CancelAccept -Message $Language[19] -CancelButtonText $Language[21] -AcceptButtonText $Language[20]) -eq "OK")
             {
                 $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[18]
+                $DataGridView = $ScanComputerForBlockedConnectionsDataGridView
                 $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridView)
                 $ScanComputerForBlockedConnectionsPanel.Controls.Add($ScanComputerForBlockedConnectionsDataGridViewButtonPanel)
                 $ScanComputerForBlockedConnectionsPanel.Controls.Remove($EditFirewallRulesPanel)
@@ -2684,6 +2737,7 @@ function ScanComputerForBlockedConnectionsPage
     $ScanComputerForBlockedConnectionsDataGridView.Columns[0].DefaultCellStyle.Alignment = "TopLeft"
     $ColumnIndex = 1
     $EmptyNetworkConnection = New-Object -TypeName "NetworkConnection"
+    ColumnHeaderContextMenuStrip -DataGridView $ScanComputerForBlockedConnectionsDataGridView
     foreach ($PropertyName in ($EmptyNetworkConnection.PsObject.Properties).name)
     {
         if ($PropertyName -in "ProcessId", "DisplayName", "Application", "Direction", "SourceAddress", "SourcePort", "DestAddress", "DestPort", "Protocol", "Notes")
@@ -2702,6 +2756,7 @@ function ScanComputerForBlockedConnectionsPage
             $ScanComputerForBlockedConnectionsDataGridView.Columns[$ColumnIndex].Name = $PropertyName
         }
         $ScanComputerForBlockedConnectionsDataGridView.Columns["$PropertyName"].DefaultCellStyle.Alignment = "TopLeft"
+        $ScanComputerForBlockedConnectionsDataGridView.Columns[$ColumnIndex].HeaderCell.ContextMenuStrip = $ColumnHeaderContextMenuStrip
         $ColumnIndex ++
     }
     $ScanComputerForBlockedConnectionsDataGridView.Columns["DisplayName"].Frozen = $true
@@ -3296,6 +3351,9 @@ $English = @( # `n and `r`n are used for new lines
 "APPLICATION PACKAGE AUTHORITY\ALL APPLICATION PACKAGES"
 "APPLICATION PACKAGE AUTHORITY\ALL RESTRICTED APP PACKAGES"
 "This security on this file appears to grant delete rights to non privileged accounts, please review the security.`r`nMalware could overwrite this application and gain access to the network resources allowed to this application.`r`nConsider moving this application to a location where standard users do not have delete rights."
+"Hide"
+"Freeze/Unfreeze"
+"Restore defaults"
 )
 
 $EnglishUpdateDomainResourcesToolTips = @(
