@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.16
+    Build 1809.17
 #>
 
 class WindowsFirewallRule
@@ -77,8 +77,7 @@ function DefaultDomainResources ($DefaultDomainResourcesStatusBar)
     {
         $DefaultDomainResourcesStatusBar.Text = "$($Language[36]) $Resource"
         $Addresses = @()
-        $Names = (Get-Variable -Name $Resource).Value
-        foreach ($Name in $Names.replace(" ",""))
+        foreach ($Name in (Get-Variable -Name $Resource).Value.replace(" ",""))
         {
             switch -Wildcard ($Name)
             {
@@ -216,7 +215,7 @@ function GroupPoliciesWithExistingFirewallRules ($GroupPoliciesWithExistingFirew
     $Script:GroupPoliciesWithExistingFirewallRules = $Script:GroupPoliciesWithExistingFirewallRules| Sort-Object
 }
 
-function PopUpMessage ($Message,$CurrentForm = $ToolPageForm) # Need to use `r`n for newline
+function PopUpMessage ($Message) # Need to use `r`n for newline
 {
     $PopUpMessageForm = New-Object -TypeName "System.Windows.Forms.Form" -Property @{
         FormBorderStyle = "FixedDialog"
@@ -345,7 +344,7 @@ function UpdateDataSourceForComboBoxCell ($ArrayList,$DataGridView)
         foreach ($ComboBoxColumn in $ComboBoxColumns)
         {
             $DataGridView.rows[$Row].Cells[$ComboBoxColumn].DataSource = $ArrayList[$Row].$ComboBoxColumn
-            $DataGridView.rows[$Row].Cells[$ComboBoxColumn].DropDownWidth = (($DataGridView.rows[$Row].Cells[$ComboBoxColumn].DataSource).Length| Sort-Object -Descending| Select-Object -First 1) * 7
+            $DataGridView.rows[$Row].Cells[$ComboBoxColumn].DropDownWidth = (($DataGridView.rows[$Row].Cells[$ComboBoxColumn].DataSource).ForEach({$_.Length})| Sort-Object -Descending| Select-Object -First 1) * $DropDownWidthMultiplier
             $DataGridView.rows[$Row].Cells[$ComboBoxColumn].Value = $ArrayList[$Row].$ComboBoxColumn[0]
         } 
     }
@@ -385,7 +384,7 @@ function ResetDataSource ($ResetDataSourceData) # The data object can be a combo
         $ResetDataSourceData.Value = $ResetDataSourceData.DataSource| Select-Object -Last 1
         $ResetDataSourceData.DataSource = [System.Collections.ArrayList]@($ResetDataSourceData.Value) # Rather than setting the data source to $null set it to a temporary valid value to prevent errors
         $ResetDataSourceData.DataSource = $ResetDataSourceDataSource
-        $ResetDataSourceData.DropDownWidth = (($ResetDataSourceData.DataSource).Length| Sort-Object -Descending| Select-Object -First 1) * 7
+        $ResetDataSourceData.DropDownWidth = (($ResetDataSourceData.DataSource).ForEach({$_.Length})| Sort-Object -Descending| Select-Object -First 1) * $DropDownWidthMultiplier
     }
     else
     {
@@ -869,12 +868,41 @@ function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
             }
         }
     }
-    elseif ($ChangeValueProperty -in  "Group", "Profile", "Protocol", "Program", "Package", "Service")
+    elseif ($ChangeValueProperty -in "Package", "Service")
+    {
+        switch ($ChangeValueProperty)
+        {
+            "Package"
+            { # 1 value, any package or any
+                ResourceSelection -ResourceSelectionData (($Language[52], $Language[53]) + $($Mappings.Keys| Sort-Object)) -ResourceSelectionStatusBarText $Language[50] -ResourceSelectionSelectionMode One
+            }
+            "Service"
+            { # 1 value, any service or any
+                ResourceSelection -ResourceSelectionData (($Language[52], $Language[54]) + $($Services.DisplayName| Sort-Object)) -ResourceSelectionStatusBarText $Language[55] -ResourceSelectionSelectionMode One
+            }
+        }
+        if ($SelectedItems)
+        {
+            foreach ($ChangeValueDataObject in $ChangeValueDataObjects)
+            {
+                $ChangeValueDataObject.Value = $($SelectedItems)
+            }
+        }
+    }
+    elseif ($ChangeValueProperty -in  "Profile", "Protocol", "Program")
     {
         PopUpMessage -Message "Not available in this build."
     }
     else
     {
+        function ChangeDataObject
+        {
+            foreach ($ChangeValueDataObject in $ChangeValueDataObjects)
+            {
+                $ChangeValueDataObject.Value = $ChangeValueTextBox.Text
+            }
+            $ChangeValueForm.Close()
+        }
         $ChangeValueForm = New-Object -TypeName "System.Windows.Forms.Form" -Property @{
             FormBorderStyle = "FixedDialog"
             KeyPreview = $true
@@ -904,14 +932,6 @@ function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
         $ChangeValueAcceptButton.Left = $ChangeValueCancelButton.Left - $ChangeValueAcceptButton.Width - 5
         $ChangeValueAcceptButton.Add_Click(
         {
-            function ChangeDataObject
-            {
-                foreach ($ChangeValueDataObject in $ChangeValueDataObjects)
-                {
-                    $ChangeValueDataObject.Value = $ChangeValueTextBox.Text
-                }
-                $ChangeValueForm.Close()
-            }
             switch ($ChangeValueProperty)
             {
                 "DisplayName"
@@ -933,6 +953,12 @@ function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
                 }
                 "Group"
                 { # 1 value or blank
+                if ($EditExistingFirewallRulesPanel.Parent)
+                {
+                    PopUpMessage -Message "Not available in this build."
+                    break
+                }
+                    ChangeDataObject
                     break
                 }
                 "Profile"
@@ -940,19 +966,11 @@ function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
                     break
                 }
                 "Protocol"
-                { # Only supporting TCP and UDP in this build
+                { # Only supporting Any, TCP, UDP, ICMPv4 and ICMPv6 in this build
                     break
                 }
                 "Program"
                 { # 1 value or any
-                    break
-                }
-                "Package"
-                { # 1 value, any package or any
-                    break
-                }
-                "Service"
-                { # 1 value, any service or any
                     break
                 }
             }
@@ -980,7 +998,7 @@ function ChangeValue ($ChangeValueProperty,$ChangeValueDataObjects)
             Width = $ChangeValueForm.Width - 16
             Height = $ChangeValueForm.Height - 82
         }
-        if ($ChangeValueProperty -in "DisplayName", "Description")
+        if ($ChangeValueProperty -in "DisplayName", "Description", "Group")
         {
             $ChangeValuePanel.Controls.Add($ChangeValueTextBox)
         }
@@ -1048,17 +1066,17 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
                         {
                             Invoke-Expression -Command $Command
                         }
-                        PopUpMessage -Message "Domain group policy object updated." -CurrentForm $ReviewAndSaveForm
+                        PopUpMessage -Message "Domain group policy object updated."
                     }
                     catch
                     {
-                        PopUpMessage -Message $error[0] -CurrentForm $ReviewAndSaveForm
+                        PopUpMessage -Message $error[0]
                     }
                 }
                 if($ExistingRules -eq $false)
                 {
                     Remove-Variable -Name "SelectedItems" -Scope 1 -Force -ErrorAction SilentlyContinue
-                    ResourceSelection -ResourceSelectionData ((Get-GPO -All).DisplayName| Sort-Object) -ResourceSelectionStatusBarText $Language[23] -CurrentForm $ReviewAndSaveForm
+                    ResourceSelection -ResourceSelectionData ((Get-GPO -All).DisplayName| Sort-Object) -ResourceSelectionStatusBarText $Language[23]
                     if ($SelectedItems)
                     {
                         $Commands.Insert(0, "`$GpoSession = Open-NetGPO -PolicyStore `"$DomainName\$(($SelectedItems -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$'))`"")
@@ -1100,6 +1118,30 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
         $ReviewAndSaveForm.Controls.Add($ReviewAndSaveStatusBar) # Added to the form last to ensure the status bar gets put at the bottom
         [void]$ReviewAndSaveForm.ShowDialog()
     }
+    function ReplaceProperty ($PropertyName, $WindowsFirewallRuleProperty)
+    {
+        $WindowsFirewallRuleProperty = ($WindowsFirewallRuleProperty -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$').Replace("RPC", "135").Replace("IPHTTPS", "443")
+        if ($WindowsFirewallRuleProperty.Count -gt 0)
+        {
+            $WindowsFirewallRuleProperty = ($WindowsFirewallRuleProperty -join '", "')
+        }
+        if ($PropertyName -in "Package", "Service" -and $WindowsFirewallRuleProperty -ne $Language[52])
+        {
+            if ($WindowsFirewallRuleProperty -in $Language[53], $Language[54])
+            {
+                $WindowsFirewallRuleProperty = "*"
+            }
+            elseif ($PropertyName -eq "Package")
+            {
+                $WindowsFirewallRuleProperty = $($Mappings."$($WindowsFirewallRuleProperty)")
+            }
+            else
+            {
+                $WindowsFirewallRuleProperty = ($Services).Where({$_.DisplayName -eq $WindowsFirewallRuleProperty}).Name
+            }
+        }
+        return $WindowsFirewallRuleProperty
+    }
     if ($ExistingRules)
     {
         $ChangesFound = $false
@@ -1112,15 +1154,14 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
             {
                 if (Compare-Object -ReferenceObject $WindowsFirewallRulesClone[$SelectedIndex] -DifferenceObject $WindowsFirewallRules[$SelectedIndex] -Property $PropertyName)
                 {
+                    $WindowsFirewallRuleProperty = ReplaceProperty -PropertyName $PropertyName -WindowsFirewallRuleProperty $WindowsFirewallRules[$SelectedIndex].$PropertyName
                     if ($NewLine)
                     {
                         $ChangesFound = $true
                         $NewLine = $false
-                        $EscapedName = ($WindowsFirewallRulesClone[$SelectedIndex].Name -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$')
-                        $Index = $Commands.Add("Set-NetFirewallRule -GPOSession `$GpoSession -Name `"$EscapedName`"")
+                        $Index = $Commands.Add("Set-NetFirewallRule -GPOSession `$GpoSession -Name `"$($WindowsFirewallRules[$SelectedIndex].Name)`"") # .Add returns the index of the new line and is used to append additional changed properties
                     }
-                    $EscapedValue = (($WindowsFirewallRules[$SelectedIndex].$PropertyName -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$') -join '", "')
-                    $Commands[$Index] = $Commands[$Index] + " -" + $PropertyName.Replace("DisplayName", "NewDisplayName") + (" `"$EscapedValue`"")
+                    $Commands[$Index] = $Commands[$Index] + " -" + $PropertyName.Replace("DisplayName", "NewDisplayName") + (" `"$($WindowsFirewallRuleProperty)`"")
                 }
             }
         }
@@ -1137,49 +1178,49 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
     else
     {
         $Commands = New-Object -TypeName "System.Collections.ArrayList"
-        foreach ($WindowsFirewallRule in $WindowsFirewallRules)
-        { # This function does not check for the properties InterfaceAlias, InterfaceType and Security. These may be added in a futire build.
-            $Index = $Commands.Add("New-NetFirewallRule -GPOSession `$GpoSession")
+        foreach ($SelectedIndex in $SelectedIndices)
+        { # This function does not check for the properties InterfaceAlias, InterfaceType and Security. These may be added in a future build.
+            $Index = $Commands.Add("New-NetFirewallRule -GPOSession `$GpoSession") # .Add returns the index of the new line and is used to append additional changed properties
             foreach ($PropertyName in "Name", "DisplayName")
             { # These properties are always needed
-                $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$') -join '", "')
-                $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$EscapedValue`""
+                $WindowsFirewallRuleProperty = ReplaceProperty -PropertyName $PropertyName -WindowsFirewallRuleProperty $WindowsFirewallRules[$SelectedIndex].$PropertyName
+                $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$($WindowsFirewallRuleProperty)`""
             }
             foreach ($PropertyName in "Description", "Group", "Platform", "Owner")
             {
-                if ($WindowsFirewallRule.$PropertyName)
+                if ($WindowsFirewallRules[$SelectedIndex].$PropertyName)
                 { # These properties are added if they have a value
-                    $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$') -join '", "')
-                    $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$EscapedValue`""
+                    $WindowsFirewallRuleProperty = ReplaceProperty -PropertyName $PropertyName -WindowsFirewallRuleProperty $WindowsFirewallRules[$SelectedIndex].$PropertyName
+                    $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$($WindowsFirewallRuleProperty)`""
                 }
             }
-            if ($WindowsFirewallRule.Enabled -eq $false)
+            if ($WindowsFirewallRules[$SelectedIndex].Enabled -eq $false)
             { # This property is added if it's not the default
                 $Commands[$Index] = $Commands[$Index] + " -Enabled $false" 
             }
-            foreach ($PropertyName in "Profile", "RemoteAddress", "LocalAddress", "Program", "Package", "Protocol", "LocalPort", "RemotePort", "IcmpType", "DynamicTarget", "Service")
+            foreach ($PropertyName in "Profile", "RemoteAddress", "LocalAddress", "Protocol", "LocalPort", "RemotePort", "IcmpType", "DynamicTarget", "Program", "Package", "Service")
             {
-                if ($WindowsFirewallRule.$PropertyName -and $WindowsFirewallRule.$PropertyName -ne "Any")
+                if ($WindowsFirewallRules[$SelectedIndex].$PropertyName -and $WindowsFirewallRules[$SelectedIndex].$PropertyName -ne "Any")
                 { # These properties are added if they are not the default
-                    $EscapedValue = (($WindowsFirewallRule.$PropertyName -replace '`', '``' -replace "'", "``'" -replace '"', '`"').Replace('$', '`$') -join '", "')
-                    $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$EscapedValue`""
+                    $WindowsFirewallRuleProperty = ReplaceProperty -PropertyName $PropertyName -WindowsFirewallRuleProperty $WindowsFirewallRules[$SelectedIndex].$PropertyName
+                    $Commands[$Index] = $Commands[$Index] + " -$PropertyName `"$($WindowsFirewallRuleProperty)`""
                 }
             }
-            if ($WindowsFirewallRule.Direction -eq "Outbound")
+            if ($WindowsFirewallRules[$SelectedIndex].Direction -eq "Outbound")
             { # This property is added if it's not the default
                 $Commands[$Index] = $Commands[$Index] + " -Direction `"Outbound`"" 
             }
-            if ($WindowsFirewallRule.Action -eq "Block")
+            if ($WindowsFirewallRules[$SelectedIndex].Action -eq "Block")
             { # This property is added if it's not the default
                 $Commands[$Index] = $Commands[$Index] + " -Action `"Block`"" 
             }
-            if ($WindowsFirewallRule.EdgeTraversalPolicy -eq "Allow")
+            if ($WindowsFirewallRules[$SelectedIndex].EdgeTraversalPolicy -eq "Allow")
             { # This property is added if it's not the default
                 $Commands[$Index] = $Commands[$Index] + " -EdgeTraversalPolicy `"Allow`"" 
             }
             foreach ($PropertyName in "LooseSourceMapping", "LocalOnlyMapping")
             {
-                if ($WindowsFirewallRule.$PropertyName -eq $true)
+                if ($WindowsFirewallRules[$SelectedIndex].$PropertyName -eq $true)
                 { # These properties are added if they are not the default
                     $Commands[$Index] = $Commands[$Index] + " -$PropertyName $true" 
                 }
@@ -1191,10 +1232,10 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
 
 function EditFirewallRules 
 { # This is designed to be called from inside a click event, the object will be placed in the scope of the calling function.
-    New-Variable -Name "EditFirewallRulesPanel" -Value (New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
+    Set-Variable -Name "EditFirewallRulesPanel" -Value (New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
         Dock = "Fill"
         BackColor = "WhiteSmoke"
-    }) -Scope 2 -Force
+    }) -Scope 2
     $EditFirewallRulesPanel.Add_SizeChanged(
     {
         $EditFirewallRulesDataGridViewButtonPanel.MaximumSize = @{
@@ -1206,7 +1247,7 @@ function EditFirewallRules
             Height = $ToolPageForm.Height - 120
         }
     })
-    New-Variable -Name "EditFirewallRulesDataGridView" -Value (New-Object -TypeName "System.Windows.Forms.DataGridView" -Property @{
+    Set-Variable -Name "EditFirewallRulesDataGridView" -Value (New-Object -TypeName "System.Windows.Forms.DataGridView" -Property @{
         AutoSize = $true
         SelectionMode = "CellSelect"
         BackGroundColor = "WhiteSmoke"
@@ -1218,12 +1259,12 @@ function EditFirewallRules
             Height = $ToolPageForm.Height - 120
         }
         RowHeadersVisible = $false
-    }) -Scope 2 -Force
+    }) -Scope 2
     $EditFirewallRulesDataGridView.Add_CurrentCellChanged(
     {
         if ($EditFirewallRulesDataGridView.CurrentCell.DropDownWidth)
         {
-            $EditFirewallRulesDataGridView.CurrentCell.DropDownWidth = (($EditFirewallRulesDataGridView.CurrentCell.DataSource).Length| Sort-Object -Descending| Select-Object -First 1) * 7
+            $EditFirewallRulesDataGridView.CurrentCell.DropDownWidth = (($EditFirewallRulesDataGridView.CurrentCell.DataSource).ForEach({$_.Length})| Sort-Object -Descending| Select-Object -First 1) * $DropDownWidthMultiplier
         }
         if ($EditFirewallRulesDataGridView.CurrentCell.ColumnIndex -eq 0)
         {
@@ -1254,7 +1295,7 @@ function EditFirewallRules
         {
             Set-Variable -Name "SelectedColumnIndex" -Value $EditFirewallRulesDataGridView.CurrentCell.ColumnIndex -Scope 1
         }
-        elseif ($EditFirewallRulesDataGridView.CurrentCell.ColumnIndex -ne (Get-Variable -Name "SelectedColumnIndex" -Scope 1).Value)
+        elseif ($EditFirewallRulesDataGridView.CurrentCell.ColumnIndex -ne $SelectedColumnIndex)
         {
             $EditFirewallRulesDataGridView.ClearSelection()
             $EditFirewallRulesDataGridView.CurrentCell.Selected = $true
@@ -1263,7 +1304,8 @@ function EditFirewallRules
     })
     $EditFirewallRulesDataGridView.Add_DoubleClick(
     {
-        if ($EditFirewallRulesDataGridViewChangeButton.Visible = $true)
+        $MousePosition = $EditFirewallRulesDataGridView.PointToClient([System.Windows.Forms.Control]::MousePosition)
+        if ($EditFirewallRulesDataGridViewChangeButton.Visible -eq $true -and $EditFirewallRulesDataGridView.HitTest($MousePosition.X,$MousePosition.Y).Type -eq "Cell")
         {
             $EditFirewallRulesDataGridViewChangeButton.PerformClick()
         }
@@ -1277,7 +1319,7 @@ function EditFirewallRules
         }
         $EditFirewallRulesDataGridViewButtonPanel.Width = $EditFirewallRulesDataGridView.width
     })
-    New-Variable -Name "SelectedColumnIndex" -Value 0 -Scope 2 -Force
+    Set-Variable -Name "SelectedColumnIndex" -Value 0 -Scope 2
     $EditFirewallRulesDataGridView.Columns.Insert(0, (New-Object -TypeName "System.Windows.Forms.DataGridViewCheckBoxColumn" -Property @{
        AutoSizeMode = "AllCellsExceptHeader"
     }))
@@ -1317,7 +1359,7 @@ function EditFirewallRules
     $EditFirewallRulesDataGridView.Columns["Direction"].Width = 55
     $EditFirewallRulesDataGridView.Columns["Action"].Width = 55
     $EditFirewallRulesDataGridView.Columns["Protocol"].Width = 55
-    New-Variable -Name "EditFirewallRulesDataGridViewButtonPanel" -Value (New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
+    Set-Variable -Name "EditFirewallRulesDataGridViewButtonPanel" -Value (New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
         Width = $EditFirewallRulesDataGridView.Width
         Height = 22
         Dock = "None"
@@ -1326,11 +1368,11 @@ function EditFirewallRules
             X = 0
             Y = $EditFirewallRulesDataGridView.Bottom
         }
-    }) -Scope 2 -Force
-    New-Variable -Name "EditFirewallRulesDataGridViewRemoveButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
+    }) -Scope 2
+    Set-Variable -Name "EditFirewallRulesDataGridViewRemoveButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
         Text = $Language[28]
         Anchor = "Right"
-    }) -Scope 2 -Force
+    }) -Scope 2
     $EditFirewallRulesDataGridViewRemoveButton.Left = $EditFirewallRulesDataGridViewButtonPanel.Width - $EditFirewallRulesDataGridViewRemoveButton.Width - 16
     $EditFirewallRulesDataGridViewRemoveButton.Add_Click(
     { # Most of this should move to the RemoveResource function with a test to see if the selected cell is a ComboBox.
@@ -1422,29 +1464,29 @@ function EditFirewallRules
             PopUpMessage -Message "No resources were found that can be removed."
         }
     })
-    New-Variable -Name "EditFirewallRulesDataGridViewAddButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
+    Set-Variable -Name "EditFirewallRulesDataGridViewAddButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
         Text = $Language[29]
         Anchor = "Right"
-    }) -Scope 2 -Force
+    }) -Scope 2
     $EditFirewallRulesDataGridViewAddButton.Left = $EditFirewallRulesDataGridViewRemoveButton.Left - $EditFirewallRulesDataGridViewAddButton.Width - 5
     $EditFirewallRulesDataGridViewAddButton.Add_Click(
     {
         AddResource -AddResourceProperty $EditFirewallRulesDataGridView.CurrentCell.OwningColumn.Name -AddResourceValues $EditFirewallRulesDataGridView.SelectedCells
     })
-    New-Variable -Name "EditFirewallRulesDataGridViewNsLookupButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
+    Set-Variable -Name "EditFirewallRulesDataGridViewNsLookupButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
         Text = $Language[30]
         Anchor = "Right"
-    }) -Scope 2 -Force
+    }) -Scope 2
     $EditFirewallRulesDataGridViewNsLookupButton.Left = $EditFirewallRulesDataGridViewAddButton.Left - $EditFirewallRulesDataGridViewNsLookupButton.Width - 5
     $EditFirewallRulesDataGridViewNsLookupButton.Add_Click(
     {
         NsLookup -IpAddresses $EditFirewallRulesDataGridView.SelectedCells.Value
     })
-    New-Variable -Name "EditFirewallRulesDataGridViewChangeButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
+    Set-Variable -Name "EditFirewallRulesDataGridViewChangeButton" -Value (New-Object -TypeName "System.Windows.Forms.Button" -Property @{
         Text = $Language[31]
         Anchor = "Right"
         Visible = $false
-    }) -Scope 2 -Force
+    }) -Scope 2
     $EditFirewallRulesDataGridViewChangeButton.Left = $EditFirewallRulesDataGridViewButtonPanel.Width - $EditFirewallRulesDataGridViewChangeButton.Width - 16
     $EditFirewallRulesDataGridViewChangeButton.Add_Click(
     {
@@ -1458,8 +1500,8 @@ function EditFirewallRules
     $EditFirewallRulesPanel.Controls.Add($EditFirewallRulesDataGridViewButtonPanel)
 }
 
-function ResourceSelection ($ResourceSelectionData,$ResourceSelectionStatusBarText,$CurrentForm = $ToolPageForm,$ResourceSelectionSelectionMode = "MultiExtended")
-{ # This is designed to be called from inside a click event, the object will be placed in the scope of the calling function.  
+function ResourceSelection ($ResourceSelectionData,$ResourceSelectionStatusBarText,[ValidateSet("None", "One", "MultiSimple", "MultiExtended")]$ResourceSelectionSelectionMode = "MultiExtended")
+{ # This is designed to be called from inside a click event, the $SelectedItems object will be placed in the scope of the calling function.  
     $ResourceSelectionForm = New-Object -TypeName "System.Windows.Forms.Form" -Property @{
         AutoSize = $true
         FormBorderStyle = "Sizable"
@@ -1564,7 +1606,7 @@ function NsLookup ($IpAddresses)
 function ColumnHeaderContextMenuStrip ($DataGridView)
 {
     Set-Variable -Name "DataGridView" -Value $DataGridView -Scope 1
-    New-Variable -Name "ColumnHeaderContextMenuStrip" -Value (New-Object -TypeName "System.Windows.Forms.ContextMenuStrip") -Scope 1
+    Set-Variable -Name "ColumnHeaderContextMenuStrip" -Value (New-Object -TypeName "System.Windows.Forms.ContextMenuStrip") -Scope 1
     [void]$ColumnHeaderContextMenuStrip.Items.Add($Language[47])
     [void]$ColumnHeaderContextMenuStrip.Items.Add($Language[48])
     [void]$ColumnHeaderContextMenuStrip.Items.Add($Language[49])
@@ -1595,8 +1637,6 @@ function ColumnHeaderContextMenuStrip ($DataGridView)
             }
             $Language[49]
             {
-                $DataGridView.Columns[0].Frozen = $false
-                $DataGridView.Columns["DisplayName"].Frozen = $true
                 foreach ($Column in $DataGridView.Columns)
                 {
                     if ($Column.Name -notin "SourcePort", "ProcessId")
@@ -1604,6 +1644,8 @@ function ColumnHeaderContextMenuStrip ($DataGridView)
                         $Column.Visible = $true
                     }
                 }
+                $DataGridView.Columns[0].Frozen = $false
+                $DataGridView.Columns["DisplayName"].Frozen = $true
             }
         }
         $DataGridView.Size = $DataGridView.PreferredSize
@@ -1747,7 +1789,7 @@ function UpdateDomainResourcesPage
             $ResourcesArray = Import-Clixml -Path $UpdateDomainResourcesOpenFileDialog.FileName
             foreach ($Resource in $ResourcesArray)
             {
-                New-Variable -Name $Resource.Name -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script" -Force
+                Set-Variable -Name $Resource.Name -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope "Script"
                 Set-Variable -Name $Resource.Name -Value $Resource.Value -Scope "Script"
             }
             $UpdateDomainResourcesResourcesListBox.SetSelected(0, $true)
@@ -1905,8 +1947,8 @@ function EditExistingFirewallRulesPage
             $EditExistingFirewallRulesGroupPolicies = $Script:GroupPoliciesWithExistingFirewallRules
         }
         foreach ($EditExistingFirewallRulesGroupPolicy in $EditExistingFirewallRulesGroupPolicies)
-        { 
-            [void]$EditExistingFirewallRulesGpoListBox.Items.Add($EditExistingFirewallRulesGroupPolicy) # Loop through GPOs and add to listbox 
+        { # Loop through GPOs and add to listbox 
+            [void]$EditExistingFirewallRulesGpoListBox.Items.Add($EditExistingFirewallRulesGroupPolicy)
         }
         $EditExistingFirewallRulesGpoListBox.SetSelected(0, $true)
         $EditExistingFirewallRulesStatusBar.Text = "Please select a GPO to display."
@@ -1937,12 +1979,12 @@ function EditExistingFirewallRulesPage
             $EditExistingFirewallRulesStatusBar.Text = "Building rule collection."
             $EditExistingFirewallRulesRulesListBox.Items.Clear()
             $GpoSession = Open-NetGPO -PolicyStore "$DomainName\$($EditExistingFirewallRulesGpoListBox.SelectedItem)"
-            New-Variable -Name "EditExistingFirewallRulesRulesArray" -Value @() -Scope 1 -Force
+            Set-Variable -Name "EditExistingFirewallRulesRulesArray" -Value @() -Scope 1
             if (Get-NetFirewallRule -GPOSession $GpoSession| Select-Object -First 1)
             {
                 foreach ($EditExistingFirewallRulesRule in (Get-NetFirewallRule -GPOSession $GpoSession| Sort-Object -Property "DisplayName"))
                 {
-                    Set-Variable -Name "EditExistingFirewallRulesRulesArray" -Value ((Get-Variable "EditExistingFirewallRulesRulesArray").Value + $EditExistingFirewallRulesRule.Name) -Scope 1
+                    Set-Variable -Name "EditExistingFirewallRulesRulesArray" -Value ($EditExistingFirewallRulesRulesArray + $EditExistingFirewallRulesRule.Name) -Scope 1
                     $EditExistingFirewallRulesRulesListBox.Items.Add($EditExistingFirewallRulesRule.DisplayName)
                 }
                 $EditExistingFirewallRulesStatusBar.Text = "Please select one or more rules to display."
@@ -1964,42 +2006,91 @@ function EditExistingFirewallRulesPage
         {
             if (($EditExistingFirewallRulesRulesListBox.SelectedIndices).Count -ne 0)
             {
-            $GpoSession = Open-NetGPO -PolicyStore ("$DomainName\$($EditExistingFirewallRulesGpoListBox.SelectedItem)")
-            New-Variable -Name "WindowsFirewallRules" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope 1 -Force
-            New-Variable -Name "WindowsFirewallRulesClone" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope 1 -Force
-            foreach ($EditExistingFirewallRulesRule in (Get-NetFirewallRule -GPOSession $GpoSession -Name $EditExistingFirewallRulesRulesArray[$EditExistingFirewallRulesRulesListBox.SelectedIndices]))
-            {
-                $EditExistingFirewallRulesStatusBar.Text = "Importing rule $($EditExistingFirewallRulesRule.Name)."
-                $WindowsFirewallRule = New-Object -TypeName "WindowsFirewallRule" -Property @{
-                    PolicyStore = ("$DomainName\$($EditExistingFirewallRulesGpoListBox.SelectedItem)")
-                    Name = $EditExistingFirewallRulesRule.Name
-                    DisplayName = $EditExistingFirewallRulesRule.DisplayName
-                    Description = $EditExistingFirewallRulesRule.Description
-                    Group = $EditExistingFirewallRulesRule.Group
-                    Enabled = $EditExistingFirewallRulesRule.Enabled
-                    Profile = @($EditExistingFirewallRulesRule.Profile) -split (", ")
-                    Direction = $EditExistingFirewallRulesRule.Direction
-                    Action = $EditExistingFirewallRulesRule.Action
-                    LocalAddress = @(($EditExistingFirewallRulesRule| Get-NetFirewallAddressFilter -GPOSession $GpoSession).LocalAddress)
-                    RemoteAddress = @(($EditExistingFirewallRulesRule| Get-NetFirewallAddressFilter -GPOSession $GpoSession).RemoteAddress)
-                    Protocol = ($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).Protocol
-                    LocalPort = @((($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).LocalPort).Replace("RPC", "135"))
-                    RemotePort = @((($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).RemotePort).Replace("RPC", "135").Replace("IPHTTPS", "443"))
-                    Program = ($EditExistingFirewallRulesRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Program
-                    Package = ($EditExistingFirewallRulesRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Package
-                    Service = ($EditExistingFirewallRulesRule| Get-NetFirewallServiceFilter -GPOSession $GPOSession).Service
+                if (-not $Mappings)
+                {
+                    $EditExistingFirewallRulesStatusBar.Text =  $Language[51]
+                    $UserSids = @()
+                    foreach ($PsChildName in ((Get-ChildItem -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\S-1-5-21-*').PsChildName))
+                    {
+                        $UserSids += $PsChildName
+                    }
+                    New-PSDrive -Name "HKU" -PSProvider Registry -Root "HKEY_USERS"
+                    Set-Variable -name "Mappings" -Value @{} -Scope 1
+                    foreach ($UserSid in $UserSids)
+                    { # Get the App package family name to SID mappings from the registry on the local machine
+                        if (Get-ChildItem -Path "HKU:\$($UserSid)_Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Mappings\" -ErrorAction SilentlyContinue)
+                        {
+                            $Root = (Get-ChildItem -Path "HKU:\$($UserSid)_Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Mappings\")
+                            foreach ($Name in $Root.Name)
+                            {
+                                if ((Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker)
+                                {
+                                    Set-Variable -Name "Mappings" -Value ($Mappings += @{(Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker = (Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").PSChildName}) -Scope 1
+                                }
+                            }
+                        }
+                    }
+
                 }
-                Set-Variable -Name "WindowsFirewallRules" -Value ([System.Collections.ArrayList]((Get-Variable -Name "WindowsFirewallRules").value + $WindowsFirewallRule)) -Scope 1
-                Set-Variable -Name "WindowsFirewallRulesClone" -Value ([System.Collections.ArrayList]((Get-Variable -Name "WindowsFirewallRulesClone").value + $WindowsFirewallRule.Clone())) -Scope 1
-            }
-            Remove-Variable -Name "GpoSession" -Force
-            $EditExistingFirewallRulesStatusBar.Text = "$($WindowsFirewallRules.Count) rule(s) imported, edit rules and then select one or more rules to create the commands."
-            EditFirewallRules
-            $EditFirewallRulesDataGridView.DataSource = $WindowsFirewallRules
-            $EditExistingFirewallRulesAcceptButton.Text = "Create"
-            $EditExistingFirewallRulesPanel.Controls.Add($EditFirewallRulesPanel)
-            $EditExistingFirewallRulesPanel.Controls.Remove($EditExistingFirewallRulesRulesListBox)
-            UpdateDataSourceForComboBoxCell -ArrayList $WindowsFirewallRules -DataGridView $EditFirewallRulesDataGridView # This needs to run after the gridview control has been added so that the rows exist
+                if (-not $Services)
+                {
+                    $EditExistingFirewallRulesStatusBar.Text =  $Language[56]
+                    Set-Variable -Name "Services" -Value (Get-CimInstance -ClassName "Win32_Service") -Scope 1
+                }
+                $GpoSession = Open-NetGPO -PolicyStore ("$DomainName\$($EditExistingFirewallRulesGpoListBox.SelectedItem)")
+                Set-Variable -Name "WindowsFirewallRules" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope 1
+                Set-Variable -Name "WindowsFirewallRulesClone" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope 1
+                foreach ($EditExistingFirewallRulesRule in (Get-NetFirewallRule -GPOSession $GpoSession -Name $EditExistingFirewallRulesRulesArray[$EditExistingFirewallRulesRulesListBox.SelectedIndices]))
+                {
+                    $EditExistingFirewallRulesStatusBar.Text = "Importing rule $($EditExistingFirewallRulesRule.Name)."
+                    $WindowsFirewallRule = New-Object -TypeName "WindowsFirewallRule" -Property @{
+                        PolicyStore = ("$DomainName\$($EditExistingFirewallRulesGpoListBox.SelectedItem)")
+                        Name = $EditExistingFirewallRulesRule.Name
+                        DisplayName = $EditExistingFirewallRulesRule.DisplayName
+                        Description = $EditExistingFirewallRulesRule.Description
+                        Group = $EditExistingFirewallRulesRule.Group
+                        Enabled = $EditExistingFirewallRulesRule.Enabled
+                        Profile = @($EditExistingFirewallRulesRule.Profile) -split (", ")
+                        Direction = $EditExistingFirewallRulesRule.Direction
+                        Action = $EditExistingFirewallRulesRule.Action
+                        LocalAddress = @(($EditExistingFirewallRulesRule| Get-NetFirewallAddressFilter -GPOSession $GpoSession).LocalAddress)
+                        RemoteAddress = @(($EditExistingFirewallRulesRule| Get-NetFirewallAddressFilter -GPOSession $GpoSession).RemoteAddress)
+                        Protocol = ($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).Protocol
+                        LocalPort = @((($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).LocalPort).Replace("RPC", "135"))
+                        RemotePort = @((($EditExistingFirewallRulesRule| Get-NetFirewallPortFilter -GPOSession $GpoSession).RemotePort).Replace("RPC", "135").Replace("IPHTTPS", "443"))
+                        Program = ($EditExistingFirewallRulesRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Program
+                    }
+                    if (($EditExistingFirewallRulesRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Package -eq "*")
+                    {
+                        $WindowsFirewallRule.Package = (($EditExistingFirewallRulesRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Package).Replace("*", $Language[53])
+                    }
+                    elseif (($EditExistingFirewallRulesRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Package)
+                    {
+                        $WindowsFirewallRule.Package = ($EditExistingFirewallRulesRule| Get-NetFirewallApplicationFilter -GPOSession $GPOSession).Package
+                        $WindowsFirewallRule.Package = $WindowsFirewallRule.Package.Replace($($WindowsFirewallRule.Package), $($Mappings.Keys| Where-Object -FilterScript {
+                            $Mappings[$_] -eq $WindowsFirewallRule.Package
+                        }))
+                    }
+                    if (($EditExistingFirewallRulesRule| Get-NetFirewallServiceFilter -GPOSession $GPOSession).Service -in $Language[52], "*")
+                    {
+                        $WindowsFirewallRule.Service = (($EditExistingFirewallRulesRule| Get-NetFirewallServiceFilter -GPOSession $GPOSession).Service).Replace("*", $Language[54])
+                    }
+                    else
+                    {
+                        $WindowsFirewallRule.Service = ($EditExistingFirewallRulesRule| Get-NetFirewallServiceFilter -GPOSession $GPOSession).Service
+                        $WindowsFirewallRule.Service = ($Services).Where({$_.Name -eq $WindowsFirewallRule.Service}).DisplayName
+                    }
+                    Set-Variable -Name "WindowsFirewallRules" -Value ([System.Collections.ArrayList]$WindowsFirewallRules += $WindowsFirewallRule) -Scope 1
+                    Set-Variable -Name "WindowsFirewallRulesClone" -Value ([System.Collections.ArrayList]$WindowsFirewallRulesClone += $WindowsFirewallRule.Clone()) -Scope 1
+                }
+                Remove-Variable -Name "GpoSession" -Force
+                $EditExistingFirewallRulesStatusBar.Text = "$($WindowsFirewallRules.Count) rule(s) imported, edit rules and then select one or more rules to create the commands."
+                EditFirewallRules
+                $EditFirewallRulesDataGridView.DataSource = $WindowsFirewallRules
+                $EditExistingFirewallRulesAcceptButton.Text = "Create"
+                $EditExistingFirewallRulesPanel.Controls.Add($EditFirewallRulesPanel)
+                $EditExistingFirewallRulesPanel.Controls.Remove($EditExistingFirewallRulesRulesListBox)
+                UpdateDataSourceForComboBoxCell -ArrayList $WindowsFirewallRules -DataGridView $EditFirewallRulesDataGridView # This needs to run after the gridview control has been added so that the rows exist
             }
             else
             {
@@ -2191,7 +2282,7 @@ function ScanComputerForBlockedConnectionsPage
                     {
                         $TcpClient = New-Object -TypeName "System.Net.Sockets.TcpClient"("InterNetwork")
                     }
-                    New-Variable -Name ("NetworkConnectivityJobs" + "$JobNumber") -Value ($TcpClient.ConnectAsync($IpAddress,135))
+                    Set-Variable -Name ("NetworkConnectivityJobs" + "$JobNumber") -Value ($TcpClient.ConnectAsync($IpAddress,135))
                     [array]$NetworkConnectivityJobs += Get-Variable -Name ("NetworkConnectivityJobs" + "$JobNumber")
                 }
                 $WaitTime = (Get-Date).AddSeconds(10)
@@ -2241,12 +2332,15 @@ function ScanComputerForBlockedConnectionsPage
                 $ComputerPsSession = New-PSSession -ComputerName $Computer -ErrorAction Stop
                 Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                     if(-not (AuditPol /Get /Subcategory:"Filtering Platform Connection").Where({$_ -like "*Filtering Platform Connection*Failure"}))
-                    {throw "Failure auditing is not enabled."}
+                    {
+                        throw "Failure auditing is not enabled."
+                    }
                 }
                 [datetime]$NetworkStateChange =  (Get-WinEvent -ComputerName $Computer -FilterHashtable @{
                     LogName = "Microsoft-Windows-NetworkProfile/Operational"
                     ID = 4004
                 } -MaxEvents 1 -ErrorAction Stop).TimeCreated.AddSeconds("1")
+                $5157MaxEvents = 750
                 if ((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"}))
                 {
                     if ((CancelAccept -Message "A $((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"}).State) job has been found for this computer.`r`nDo you wants to connect to that job or start a new scan?" -CancelButtonText "New" -AcceptButtonText "Connect") -eq "Cancel")
@@ -2257,9 +2351,9 @@ function ScanComputerForBlockedConnectionsPage
                                 LogName = "Security"
                                 ID = 5157
                                 StartTime = $args[0]
-                            } -MaxEvents 500 -ErrorAction Stop)
-                            $Events
-                        } -AsJob -ArgumentList $NetworkStateChange
+                            } -MaxEvents $args[1] -ErrorAction Stop)
+                            return $Events
+                        } -AsJob -ArgumentList $NetworkStateChange, $5157MaxEvents
                     }
                     else
                     {
@@ -2273,9 +2367,9 @@ function ScanComputerForBlockedConnectionsPage
                             LogName = "Security"
                             ID = 5157
                             StartTime = $args[0]
-                        } -MaxEvents 500 -ErrorAction Stop)
-                        $Events
-                    } -AsJob -ArgumentList $NetworkStateChange
+                        } -MaxEvents $args[1] -ErrorAction Stop)
+                        return $Events
+                    } -AsJob -ArgumentList $NetworkStateChange, $5157MaxEvents
                 }
                 $WaitTime = (Get-Date).AddSeconds(60)
                 do
@@ -2310,13 +2404,15 @@ function ScanComputerForBlockedConnectionsPage
                         throw
                     }
                 }
-                $ScanComputerForBlockedConnectionsStatusBar.Text = "Collecting additional details."
-                $Services = Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Service"
+                $ScanComputerForBlockedConnectionsStatusBar.Text = "Collecting details - services."
+                Set-Variable -Name "Services" -Value (Get-CimInstance -CimSession $ComputerCimSession -ClassName "Win32_Service") -Scope 1
+                $ScanComputerForBlockedConnectionsStatusBar.Text = "Collecting details - drive letters."
                 [System.Collections.ArrayList]$DriveLetters = @((Get-CimInstance -CimSession $ComputerCimSession -Class "Win32_Volume"| Where-Object {$_.DriveType -eq 3 -and $_.DriveLetter -ne $null}).DriveLetter)
                 if ($DriveLetters.Count -eq 1)
                 {
                     $SingleDriveLetter = $DriveLetters
                 }
+                $ScanComputerForBlockedConnectionsStatusBar.Text = "Collecting details - environment variables."
                 $ProgramData = (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                     $env:ProgramData
                 }).Replace("\", "\\")
@@ -2329,6 +2425,49 @@ function ScanComputerForBlockedConnectionsPage
                 $SystemRoot = (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                     $env:SystemRoot
                 }).Replace("\", "\\")
+                $ScanComputerForBlockedConnectionsStatusBar.Text = "Collecting details - packages."
+                Set-Variable -Name "Packages" -Value (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                    $Packages = @{}
+                    foreach ($Package in (Get-AppxPackage -AllUsers))
+                    {
+                        $InstallLocation = $Package.InstallLocation -replace $args[0], "%ProgramData%" -replace $args[1], "%ProgramFiles%" -replace $args[2], "%ProgramFiles% (x86)" -replace $args[3], "%SystemRoot%"
+                        if ($InstallLocation -and -not $Packages."$($InstallLocation)")
+                        {
+                            $Packages += @{$InstallLocation = $Package.PackageFamilyName}
+                        }
+                    }
+                    return $Packages
+                } -ArgumentList $ProgramData, $ProgramFiles, $ProgramFilesX86, $SystemRoot) -Scope 1
+                (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                    $UserSids = @()
+                    foreach ($PsChildName in ((Get-ChildItem -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\S-1-5-21-*').PsChildName))
+                    {
+                        $UserSids += $PsChildName
+                    }
+                })
+                $ScanComputerForBlockedConnectionsStatusBar.Text = "Collecting details - package mappings."
+                Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                    New-PSDrive -Name "HKU" -PSProvider Registry -Root "HKEY_USERS"
+                    }
+                Set-Variable -Name "Mappings" -Value (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                    $Mappings = @{}
+                    foreach ($UserSid in $UserSids)
+                    { # Get the App package family name to SID mappings from the registry on the scanned machine
+                        if (Get-ChildItem -Path "HKU:\$($UserSid)_Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Mappings\" -ErrorAction SilentlyContinue)
+                        {
+                            $Root = (Get-ChildItem -Path "HKU:\$($UserSid)_Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Mappings\")
+                            foreach ($Name in $Root.Name)
+                            {
+                                if ((Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker)
+                                {
+                                    $Mappings += @{(Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker = (Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").PSChildName}
+                                }
+                            }
+                        }
+                    }
+                    return $Mappings
+                }) -Scope 1
+                $ScanComputerForBlockedConnectionsStatusBar.Text = "Collecting details - domain subnets."
                 [array]$AdHarvest = Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                     (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\iphlpsvc\Parameters\ADHarvest\" -Name "LastFetchContents").LastFetchContents.Split(", ")
                 } # Not currently used
@@ -2352,7 +2491,6 @@ function ScanComputerForBlockedConnectionsPage
                     $NetworkConnections += $NetworkConnection
                 }
                 $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[13]
-                New-Variable -Name "FilteredNetworkConnections" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope 1 -Force
                 Set-Variable -Name "FilteredNetworkConnections" -Value ([System.Collections.ArrayList]($NetworkConnections| Select-Object -Property * -ExcludeProperty "SourcePort" -Unique)) -Scope 1
                 if ($SingleDriveLetter)
                 {
@@ -2431,9 +2569,9 @@ function ScanComputerForBlockedConnectionsPage
                     $FilteredNetworkConnection.Service = @("Any")
                     if (($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).Name)
                     {
-                        $FilteredNetworkConnection.Service = @(($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).Name)
+                        $FilteredNetworkConnection.Service = @(($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).DisplayName)
                     }
-                    $FilteredNetworkConnection.Protocol = $FilteredNetworkConnection.Protocol -replace "^1$", "ICMPv4" -replace "^6$", "TCP" -replace "^17$", "UDP" -replace "^58$", "ICMPv6"
+                    $FilteredNetworkConnection.Protocol = $FilteredNetworkConnection.Protocol -replace "^1$", "ICMPv4" -replace "^2$", "IGMP" -replace "^6$", "TCP" -replace "^17$", "UDP" -replace "^58$", "ICMPv6"
                     If ($FilteredNetworkConnection.Application -ne "System" -and $FilteredNetworkConnection.Application -notlike "\device\*")
                     {
                         if ($FilteredNetworkConnection.Application -eq "$($SystemRoot.Replace("\\", "\"))\System32\svchost.exe")
@@ -2489,7 +2627,7 @@ function ScanComputerForBlockedConnectionsPage
                 $ScanComputerForBlockedConnectionsDataGridView.Focus()
                 UpdateDataSourceForComboBoxCell -ArrayList $FilteredNetworkConnections -DataGridView $ScanComputerForBlockedConnectionsDataGridView
                 foreach ($FilteredNetworkConnectionApplication in (($FilteredNetworkConnections.Application).Where({$_ -ne "System"})| Sort-Object -Unique))
-                {
+                { # Check the file security to check if standard user accounts have delete, fullControl, modify, takeOwnership which can be exploited by users or malware
                     if (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
                         $Acl = Get-Acl -Path $args[0]
                         if($Acl.Owner -notin $args[1], $args[2], $args[3], $args[4], $args[5])
@@ -2570,32 +2708,9 @@ function ScanComputerForBlockedConnectionsPage
             }
             if ($SelectedIndices.Count)
             {
-            New-Variable -Name "WindowsFirewallRules" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope 1 -Force
+            Set-Variable -Name "WindowsFirewallRules" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope 1
             foreach ($ScanComputerForBlockedConnectionsRule in $FilteredNetworkConnections[$SelectedIndices])
             {
-                if ($ScanComputerForBlockedConnectionsRule.Direction -eq "Inbound")
-                {
-                    $LocalAddress = @("Any")
-                    $RemoteAddress = @($ScanComputerForBlockedConnectionsRule.DestAddress)
-                    $LocalPort = @($ScanComputerForBlockedConnectionsRule.DestPort)
-                    $RemotePort = @("Any")
-                }
-                else
-                {
-                    $LocalAddress = @("Any")
-                    $RemoteAddress = @($ScanComputerForBlockedConnectionsRule.DestAddress)
-                    $LocalPort = @("Any")
-                    $RemotePort = @($ScanComputerForBlockedConnectionsRule.DestPort)
-                }
-                if ($ScanComputerForBlockedConnectionsRule.Service.Count -gt 1)
-                {
-                    ResourceSelection -ResourceSelectionData $ScanComputerForBlockedConnectionsRule.Service -ResourceSelectionStatusBarText "$($Language[27]) $($ScanComputerForBlockedConnectionsRule.DisplayName)." -CurrentForm $ToolPageForm -ResourceSelectionSelectionMode "One"
-                    $Service = $SelectedItems
-                }
-                else
-                {
-                    $Service = $ScanComputerForBlockedConnectionsRule.Service
-                }
                 $WindowsFirewallRule = New-Object -TypeName "WindowsFirewallRule" -Property @{
                     PolicyStore = ""
                     Name = New-Guid
@@ -2606,16 +2721,37 @@ function ScanComputerForBlockedConnectionsPage
                     Profile = @("Domain")
                     Direction = $ScanComputerForBlockedConnectionsRule.Direction
                     Action = "Allow"
-                    LocalAddress =  $LocalAddress
-                    RemoteAddress = $RemoteAddress
                     Protocol = $ScanComputerForBlockedConnectionsRule.Protocol
-                    LocalPort = $LocalPort
-                    RemotePort = $RemotePort
                     Program = $ScanComputerForBlockedConnectionsRule.Application
-                    Package = ""
-                    Service = $Service
                 }
-                Set-Variable -Name "WindowsFirewallRules" -Value ([System.Collections.ArrayList]((Get-Variable -Name "WindowsFirewallRules").value + $WindowsFirewallRule)) -Scope 1
+                if ($ScanComputerForBlockedConnectionsRule.Direction -eq "Inbound")
+                {
+                    $WindowsFirewallRule.LocalAddress = @("Any")
+                    $WindowsFirewallRule.RemoteAddress = @($ScanComputerForBlockedConnectionsRule.DestAddress)
+                    $WindowsFirewallRule.LocalPort = @($ScanComputerForBlockedConnectionsRule.DestPort)
+                    $WindowsFirewallRule.RemotePort = @("Any")
+                }
+                else
+                {
+                    $WindowsFirewallRule.LocalAddress = @("Any")
+                    $WindowsFirewallRule.RemoteAddress = @($ScanComputerForBlockedConnectionsRule.DestAddress)
+                    $WindowsFirewallRule.LocalPort = @("Any")
+                    $WindowsFirewallRule.RemotePort = @($ScanComputerForBlockedConnectionsRule.DestPort)
+                }
+                if ($Packages.((($ScanComputerForBlockedConnectionsRule.Application).Split("\")| Select-Object -SkipLast 1) -join "\"))
+                {
+                    $WindowsFirewallRule.Package = $Packages.((($ScanComputerForBlockedConnectionsRule.Application).Split("\")| Select-Object -SkipLast 1) -join "\")
+                }
+                if ($ScanComputerForBlockedConnectionsRule.Service.Count -gt 1)
+                {
+                    ResourceSelection -ResourceSelectionData $ScanComputerForBlockedConnectionsRule.Service -ResourceSelectionStatusBarText "$($Language[27]) $($ScanComputerForBlockedConnectionsRule.DisplayName)." -ResourceSelectionSelectionMode "One"
+                    $WindowsFirewallRule.Service = $SelectedItems
+                }
+                else
+                {
+                    $WindowsFirewallRule.Service = $ScanComputerForBlockedConnectionsRule.Service
+                }
+                Set-Variable -Name "WindowsFirewallRules" -Value ([System.Collections.ArrayList]($WindowsFirewallRules + $WindowsFirewallRule)) -Scope 1
             }
             $ScanComputerForBlockedConnectionsStatusBar.Text = "$($WindowsFirewallRules.Count) rule(s) imported, edit rules and then select one or more rules to create the commands."
             EditFirewallRules
@@ -2713,7 +2849,7 @@ function ScanComputerForBlockedConnectionsPage
     }
     $ScanComputerForBlockedConnectionsDataGridView.Add_CurrentCellChanged(
     {
-        if ($ScanComputerForBlockedConnectionsDataGridView.CurrentCell.OwningColumn.Name -in "SourceAddress", "DestAddress") # -and $ScanComputerForBlockedConnectionsDataGridView.CurrentCell.Value -notin "Any", "DefaultGateway", "DHCP", "DNS", "Internet", "Intranet", "LocalSubnet")
+        if ($ScanComputerForBlockedConnectionsDataGridView.CurrentCell.OwningColumn.Name -in "SourceAddress", "DestAddress")
         {
                 $ScanComputerForBlockedConnectionsDataGridViewNsLookupButton.Visible = $true
         }
@@ -3104,6 +3240,7 @@ function MainThread
     $MarginDivisor = 20
     $PaddingDivisor = 125
     $ToolTipAutoPopDelayMultiplier = 800
+    $DropDownWidthMultiplier = 6
     $ToolSelectionPageForm = New-Object -TypeName "System.Windows.Forms.Form" -Property @{
         FormBorderStyle = "Sizable"
         StartPosition = "CenterScreen"
@@ -3354,6 +3491,13 @@ $English = @( # `n and `r`n are used for new lines
 "Hide"
 "Freeze/Unfreeze"
 "Restore defaults"
+"Please select a package."
+"Collecting package mappings."
+"Any"
+"Packages only"
+"Services only"
+"Please select a service."
+"Collecting services."
 )
 
 $EnglishUpdateDomainResourcesToolTips = @(
