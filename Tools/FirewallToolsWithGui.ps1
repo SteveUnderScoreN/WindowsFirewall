@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.17
+    Build 1809.18
 #>
 
 class WindowsFirewallRule
@@ -2579,12 +2579,17 @@ function ScanComputerForBlockedConnectionsPage
                             $FilteredNetworkConnection.DisplayName = "SVCHOST $(($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).DisplayName) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound", "Out").Replace("Inbound", "In") + ")"
                         }
                         elseif ($ApplicationFileDescription.($FilteredNetworkConnection.Application))
-                        {
+                        { # If this application has already been scanned and the details are in the hash table, use that data
                             $FilteredNetworkConnection.DisplayName = "$($ApplicationFileDescription.($FilteredNetworkConnection.Application)) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound", "Out").Replace("Inbound", "In") + ")"
                         }
                         else
                         {
-                            $ApplicationFileDescription.($FilteredNetworkConnection.Application) = Invoke-Command -Session $ComputerPsSession -ScriptBlock {(Get-Item $args[0]).VersionInfo.FileDescription} -ArgumentList $FilteredNetworkConnection.Application
+                            $ApplicationFileDescription.($FilteredNetworkConnection.Application) = Invoke-Command -Session $ComputerPsSession -ScriptBlock {(Get-Item $args[0] -ErrorAction SilentlyContinue).VersionInfo.FileDescription} -ArgumentList $FilteredNetworkConnection.Application
+                            if (-not $ApplicationFileDescription.($FilteredNetworkConnection.Application))
+                            { # If the application does not exist at the time of the scan use the event record data to build the display name
+                                $Executable = $FilteredNetworkConnection.Application.Split("\")| Select-Object -Last 1
+                                $ApplicationFileDescription.($FilteredNetworkConnection.Application) = $Executable.Substring(0, 1).ToUpper() + $Executable.Substring(1, ($Executable.Length -1))
+                            }
                             $FilteredNetworkConnection.DisplayName = "$($ApplicationFileDescription.($FilteredNetworkConnection.Application)) (" + $FilteredNetworkConnection.Protocol + "-" + ($FilteredNetworkConnection.Direction).Replace("Outbound", "Out").Replace("Inbound", "In") + ")"
                         }
                         $FilteredNetworkConnection.Application = $FilteredNetworkConnection.Application -replace $ProgramData, "%ProgramData%" -replace $ProgramFiles, "%ProgramFiles%" -replace $ProgramFilesX86, "%ProgramFiles% (x86)" -replace $SystemRoot, "%SystemRoot%"
@@ -2629,7 +2634,7 @@ function ScanComputerForBlockedConnectionsPage
                 foreach ($FilteredNetworkConnectionApplication in (($FilteredNetworkConnections.Application).Where({$_ -ne "System"})| Sort-Object -Unique))
                 { # Check the file security to check if standard user accounts have delete, fullControl, modify, takeOwnership which can be exploited by users or malware
                     if (Invoke-Command -Session $ComputerPsSession -ScriptBlock {
-                        $Acl = Get-Acl -Path $args[0]
+                        $Acl = Get-Acl -Path $args[0] -ErrorAction SilentlyContinue
                         if($Acl.Owner -notin $args[1], $args[2], $args[3], $args[4], $args[5])
                         {
                             return $true
@@ -3487,7 +3492,7 @@ $English = @( # `n and `r`n are used for new lines
 "NT SERVICE\TrustedInstaller"
 "APPLICATION PACKAGE AUTHORITY\ALL APPLICATION PACKAGES"
 "APPLICATION PACKAGE AUTHORITY\ALL RESTRICTED APP PACKAGES"
-"This security on this file appears to grant delete rights to non privileged accounts, please review the security.`r`nMalware could overwrite this application and gain access to the network resources allowed to this application.`r`nConsider moving this application to a location where standard users do not have delete rights."
+"This security on this could not be determined or the file appears to grant delete rights to non privileged accounts, please review.`r`nMalware or a malicious user could overwrite this application and gain access to the network resources allowed to this application.`r`nConsider moving this application to a location where standard users do not have delete rights."
 "Hide"
 "Freeze/Unfreeze"
 "Restore defaults"
