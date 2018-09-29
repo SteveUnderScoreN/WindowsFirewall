@@ -1,4 +1,4 @@
-# Tier X Devices Firewall Baseline
+# Tier X Devices Firewall Baseline, PowerShell script
 The Tier X script will create a policy that has rules for client devices and rules defining which IP addresses are allowed to manage the 
 tier device.  
 ## When Using tier x administration policies;  
