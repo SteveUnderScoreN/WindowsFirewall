@@ -166,7 +166,7 @@ function Version080Updates
     }
     Write-Progress -Activity "Applying version 0.8.0 updates" -PercentComplete 50
     Write-Progress -Activity "Applying version 0.8.0 updates - creating new rules" -id 1 -PercentComplete "1"
-    [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{20070420-f06b-4773-8ff8-d21db877f4db]" -DisplayName "Background Task Host (TCP-Out)" -Group "DomainControllers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $DomainControllers -Protocol "TCP" -RemotePort "135","49152-65535" -Program "%SystemRoot%\System32\backgroundTaskHost.exe" -ErrorAction SilentlyContinue -ErrorVariable "Version080Updates")
+    [void](New-NetFirewallRule -GPOSession $GpoSession -Name "{20070420-f06b-4773-8ff8-d21db877f4db}" -DisplayName "Background Task Host (TCP-Out)" -Group "DomainControllers" -Profile "Domain" -Direction "Outbound" -RemoteAddress $DomainControllers -Protocol "TCP" -RemotePort "135","49152-65535" -Program "%SystemRoot%\System32\backgroundTaskHost.exe" -ErrorAction SilentlyContinue -ErrorVariable "Version080Updates")
     if ($Version080Updates.Exception.Message -like "Cannot create a file when that file already exists.*")
     {
         Write-Progress -Activity "Applying version 0.8.0 updates - creating new rules" -id 1 -Completed
