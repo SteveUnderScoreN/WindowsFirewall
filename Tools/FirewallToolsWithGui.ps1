@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.18
+    Build 1809.19
 #>
 
 class WindowsFirewallRule
@@ -68,7 +68,7 @@ function DefaultDomainResources ($DefaultDomainResourcesStatusBar)
     $ServerRoleAdministrationServers = "LocalSubnet","Intranet" # These are trusted machines used by tier administrators permitted to administer a server role
     # END of version 0.8.0 domain resources
     # Version 0.9.0 domain resources
-    $MicrosoftSubnets += "13.64.0.0 - 13.107.255.255", "40.74.0.0 - 40.125.127.255", "52.145.0.0 - 52.191.255.255", "64.4.0.0 - 64.4.63.255", "65.52.0.0 - 65.55.255.255", "104.40.0.0 - 104.47.255.255", "111.221.64.0 - 111.221.127.255", "131.253.61.0 - 131.253.255.255", "134.170.0.0 - 134.170.255.255", "137.117.0.0 - 137.117.255.255", "157.54.0.0 - 157.60.255.255", "207.46.0.0 - 207.46.255.255"
+    $MicrosoftSubnets += "13.64.0.0 - 13.107.255.255", "40.64.0.0 - 40.71.255.255", "40.74.0.0 - 40.125.127.255", "52.132.0.0 - 52.143.255.255", "52.145.0.0 - 52.191.255.255", "64.4.0.0 - 64.4.63.255", "65.52.0.0 - 65.55.255.255", "104.40.0.0 - 104.47.255.255", "111.221.64.0 - 111.221.127.255", "131.253.61.0 - 131.253.255.255", "134.170.0.0 - 134.170.255.255", "137.117.0.0 - 137.117.255.255", "157.54.0.0 - 157.60.255.255", "207.46.0.0 - 207.46.255.255"
     # END of version 0.9.0 domain resources
 
     $Resources = "DomainControllers","ProxyServers","DnsServers","CrlServers","Wpad_PacFileServers","TierXManagementServers","SqlServers","WebServers","FileServers","KeyManagementServers","BackupServers","ClusteredNodesAndManagementAddresses","ExternalVpnEndpoints","DirectAccessServers","TrustedDhcpSubnets","ServerRoleAdministrationServers", "MicrosoftSubnets"
@@ -2185,7 +2185,7 @@ function ScanComputerForBlockedConnectionsPage
     class NetworkConnection
     {
         [int] $ProcessId
-        [string] $DisplayName
+        [string] $DisplayName = ""
         [string] $Application
         [string] $Direction
         [string] $SourceAddress
@@ -2193,8 +2193,8 @@ function ScanComputerForBlockedConnectionsPage
         [string] $DestAddress
         [int] $DestPort
         [string] $Protocol
-        [System.Collections.ArrayList] $Service
-        [string] $Notes
+        [System.Collections.ArrayList] $Service = @()
+        [string] $Notes = ""
     }
     $ToolPageForm = New-Object -TypeName "System.Windows.Forms.Form" -Property @{
         FormBorderStyle = "FixedDialog"
@@ -2336,39 +2336,97 @@ function ScanComputerForBlockedConnectionsPage
                         throw "Failure auditing is not enabled."
                     }
                 }
-                [datetime]$NetworkStateChange =  (Get-WinEvent -ComputerName $Computer -FilterHashtable @{
-                    LogName = "Microsoft-Windows-NetworkProfile/Operational"
-                    ID = 4004
-                } -MaxEvents 1 -ErrorAction Stop).TimeCreated.AddSeconds("1")
-                $5157MaxEvents = 750
-                if ((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"}))
-                {
-                    if ((CancelAccept -Message "A $((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"}).State) job has been found for this computer.`r`nDo you wants to connect to that job or start a new scan?" -CancelButtonText "New" -AcceptButtonText "Connect") -eq "Cancel")
-                    {
-                        (Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"})| Remove-Job
-                        $EventsJob = Invoke-Command -ComputerName $Computer -ScriptBlock {
-                            $Events = (Get-WinEvent -FilterHashtable @{
-                                LogName = "Security"
-                                ID = 5157
-                                StartTime = $args[0]
-                            } -MaxEvents $args[1] -ErrorAction Stop)
-                            return $Events
-                        } -AsJob -ArgumentList $NetworkStateChange, $5157MaxEvents
-                    }
-                    else
-                    {
-                        $EventsJob = (Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Get-WinEvent*"})
-                    }
+                [datetime]$NetworkStateChange = Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                    (Get-WinEvent -FilterHashtable @{
+                        LogName = "Microsoft-Windows-NetworkProfile/Operational"
+                        ID = 4004
+                    } -MaxEvents 1 -ErrorAction Stop).TimeCreated.AddSeconds("1")
                 }
-                else
-                {
-                    $EventsJob = Invoke-Command -ComputerName $Computer -ScriptBlock {
+                $5157MaxEvents = 750
+                Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                    $EventsScript = {
                         $Events = (Get-WinEvent -FilterHashtable @{
                             LogName = "Security"
                             ID = 5157
                             StartTime = $args[0]
-                        } -MaxEvents $args[1] -ErrorAction Stop)
+                        } -MaxEvents $args[1] -ErrorAction Stop|
+                        Select-Object @{
+                            Name = "ProcessID"
+                            Expression =
+                            {
+                                $_.Properties[0].Value
+                            }
+                        }, 
+                        @{
+                            Name = "Application"
+                            Expression =
+                            {
+                                $_.Properties[1].Value
+                            }
+                        }, 
+                        @{
+                            Name = "Direction"
+                            Expression =
+                            {
+                                $_.Properties[2].Value
+                            }
+                        }, 
+                        @{
+                            Name = "SourceAddress"
+                            Expression =
+                            {
+                                $_.Properties[3].Value
+                            }
+                        }, 
+                        @{
+                            Name = "SourcePort"
+                            Expression =
+                            {
+                                $_.Properties[4].Value
+                            }
+                        }, 
+                        @{
+                            Name = "DestAddress"
+                            Expression =
+                            {
+                                $_.Properties[5].Value
+                            }
+                        }, 
+                        @{
+                            Name = "DestPort"
+                            Expression =
+                            {
+                                $_.Properties[6].Value
+                            }
+                        }, 
+                        @{
+                            Name = "Protocol"
+                            Expression =
+                            {
+                                $_.Properties[7].Value
+                            }
+                        })
                         return $Events
+                    }
+                }
+                if ((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Invoke-Command*"}))
+                {
+                    if ((CancelAccept -Message "A $((Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Invoke-Command*"}).State) job has been found for this computer.`r`nDo you wants to connect to that job or start a new scan?" -CancelButtonText "New" -AcceptButtonText "Connect") -eq "Cancel")
+                    {
+                        (Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Invoke-Command*"})| Remove-Job
+                        $EventsJob = Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                            Invoke-Command -ScriptBlock $EventsScript -ArgumentList $args[0], $args[1]
+                        } -AsJob -ArgumentList $NetworkStateChange, $5157MaxEvents
+                    }
+                    else
+                    {
+                        $EventsJob = (Get-Job).Where({$_.Location -eq $Computer -and $_.Command -like "*Invoke-Command*"})
+                    }
+                }
+                else
+                {
+                    $EventsJob = Invoke-Command -Session $ComputerPsSession -ScriptBlock {
+                        Invoke-Command -ScriptBlock $EventsScript -ArgumentList $args[0], $args[1]
                     } -AsJob -ArgumentList $NetworkStateChange, $5157MaxEvents
                 }
                 $WaitTime = (Get-Date).AddSeconds(60)
@@ -2458,7 +2516,7 @@ function ScanComputerForBlockedConnectionsPage
                             $Root = (Get-ChildItem -Path "HKU:\$($UserSid)_Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Mappings\")
                             foreach ($Name in $Root.Name)
                             {
-                                if ((Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker)
+                                if ((Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker -and -not $Mappings."$((Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker)")
                                 {
                                     $Mappings += @{(Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker = (Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").PSChildName}
                                 }
@@ -2473,25 +2531,25 @@ function ScanComputerForBlockedConnectionsPage
                 } # Not currently used
                 [NetworkConnection[]]$NetworkConnections = @()
                 $EventCount = 1
-                $EventTotal = ($Events.Message).Count
-                foreach ($Event in $Events.Message)
+                $EventTotal = $Events.Count
+                foreach ($Event in $Events)
                 {
                     $ScanComputerForBlockedConnectionsStatusBar.Text = "Adding $EventCount of $EventTotal."
                     $EventCount ++
                     $NetworkConnection = New-Object -TypeName "NetworkConnection"
-                    $EventMessage = $Event.Split("`n").TrimStart().TrimEnd()
-                    $NetworkConnection.ProcessID = $EventMessage[3].TrimStart("Process ID:").TrimStart()
-                    $NetworkConnection.Application = $EventMessage[4].TrimStart("Application Name:").TrimStart()
-                    $NetworkConnection.Direction = $EventMessage[7].TrimStart("Direction:").TrimStart()
-                    $NetworkConnection.SourceAddress = $EventMessage[8].TrimStart("Source Address:").TrimStart()
-                    $NetworkConnection.SourcePort = $EventMessage[9].TrimStart("Source Port:").TrimStart()
-                    $NetworkConnection.DestAddress = $EventMessage[10].TrimStart("Destination Address:").TrimStart()
-                    $NetworkConnection.DestPort = $EventMessage[11].TrimStart("Destination Port:").TrimStart()
-                    $NetworkConnection.Protocol = $EventMessage[12].TrimStart("Protocol:").TrimStart()
+                    $NetworkConnection.ProcessID = $Event.ProcessID
+                    $NetworkConnection.Application = $Event.Application
+                    $NetworkConnection.Direction = $Event.Direction.Replace("%%14592", "Inbound").Replace("%%14593", "Outbound")
+                    $NetworkConnection.SourceAddress = $Event.SourceAddress
+                    $NetworkConnection.SourcePort = $Event.SourcePort
+                    $NetworkConnection.DestAddress = $Event.DestAddress
+                    $NetworkConnection.DestPort = $Event.DestPort
+                    $NetworkConnection.Protocol = $Event.Protocol
                     $NetworkConnections += $NetworkConnection
                 }
                 $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[13]
-                Set-Variable -Name "FilteredNetworkConnections" -Value ([System.Collections.ArrayList]($NetworkConnections| Select-Object -Property * -ExcludeProperty "SourcePort" -Unique)) -Scope 1
+                Set-Variable -Name "FilteredNetworkConnections" -Value (New-Object -TypeName "System.Collections.ArrayList") -Scope 1
+                Set-Variable -Name "FilteredNetworkConnections" -Value ([System.Collections.ArrayList]$FilteredNetworkConnections += ($NetworkConnections| Select-Object -Property * -ExcludeProperty "SourcePort" -Unique)) -Scope 1
                 if ($SingleDriveLetter)
                 {
                     foreach ($FilteredNetworkConnection in $FilteredNetworkConnections.Where({$_.Application -like "\device\*"}))
@@ -2667,8 +2725,6 @@ function ScanComputerForBlockedConnectionsPage
                         }
                     }
                 }
-                $ComputerCimSession| Remove-CimSession
-                $ComputerPsSession| Remove-PSSession
             }
             catch [System.Management.Automation.RuntimeException]
             {
@@ -2700,6 +2756,8 @@ function ScanComputerForBlockedConnectionsPage
             { # The datagridview control was not added so the status text is reset.
                 $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[16]
             }
+            Remove-CimSession -CimSession $ComputerCimSession -ErrorAction SilentlyContinue
+            Remove-PSSession -Session $ComputerPsSession
         }
         elseif ($ScanComputerForBlockedConnectionsDataGridView.Parent)
         {
@@ -2718,7 +2776,7 @@ function ScanComputerForBlockedConnectionsPage
             {
                 $WindowsFirewallRule = New-Object -TypeName "WindowsFirewallRule" -Property @{
                     PolicyStore = ""
-                    Name = New-Guid
+                    Name = "{" + (New-Guid) + "}"
                     DisplayName = $ScanComputerForBlockedConnectionsRule.DisplayName
                     Description = ""
                     Group = ""
@@ -2732,7 +2790,7 @@ function ScanComputerForBlockedConnectionsPage
                 if ($ScanComputerForBlockedConnectionsRule.Direction -eq "Inbound")
                 {
                     $WindowsFirewallRule.LocalAddress = @("Any")
-                    $WindowsFirewallRule.RemoteAddress = @($ScanComputerForBlockedConnectionsRule.DestAddress)
+                    $WindowsFirewallRule.RemoteAddress = @($ScanComputerForBlockedConnectionsRule.SourceAddress)
                     $WindowsFirewallRule.LocalPort = @($ScanComputerForBlockedConnectionsRule.DestPort)
                     $WindowsFirewallRule.RemotePort = @("Any")
                 }
