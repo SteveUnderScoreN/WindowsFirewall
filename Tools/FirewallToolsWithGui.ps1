@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1809.19
+    Build 1811.1
 #>
 
 class WindowsFirewallRule
@@ -744,7 +744,11 @@ function AddResource ($AddResourceProperty,$AddResourceValues)
                     break
                 }
                 "Microsoft subnets"
-                {
+                {   
+                    if ($null -eq $DomainControllers)
+                    {
+                        DefaultDomainResources -DefaultDomainResourcesStatusBar $AddResourceStatusBar
+                    }
                     $AddResourceComboBox2.DataSource = $MicrosoftSubnets
                     $AddResourcePanel.Controls.Remove($AddResourceTextBox)
                     $AddResourcePanel.Controls.Add($AddResourceComboBox2)
@@ -1059,19 +1063,26 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
             {
                 function UpdateGroupPolicyObject
                 {
-                    try
+                    $ReviewAndSaveStatusBar.Text = "Updating domain group policy object."
+                    foreach ($Command in $Commands)
                     {
-                        $ReviewAndSaveStatusBar.Text = "Updating domain group policy object."
-                        foreach ($Command in $Commands)
+                        try
                         {
-                            Invoke-Expression -Command $Command
+                            Invoke-Expression -Command "$Command -ErrorAction Stop"
                         }
-                        PopUpMessage -Message "Domain group policy object updated."
+                        catch [Microsoft.Management.Infrastructure.CimException]
+                        {
+                            if ($error[0].FullyQualifiedErrorId -eq "Windows System Error 1306,Set-NetFirewallRule")
+                            {
+                                PopUpMessage -Message ($Language[57] + $error[0].InvocationInfo.Line + $Language[58])
+                            }
+                            else
+                            {
+                                PopUpMessage -Message ($Language[57] + $error[0].InvocationInfo.Line + $error[0])
+                            }
+                        }
                     }
-                    catch
-                    {
-                        PopUpMessage -Message $error[0]
-                    }
+                    PopUpMessage -Message $Language[59]
                 }
                 if($ExistingRules -eq $false)
                 {
@@ -2017,20 +2028,19 @@ function EditExistingFirewallRulesPage
                     New-PSDrive -Name "HKU" -PSProvider Registry -Root "HKEY_USERS"
                     Set-Variable -name "Mappings" -Value @{} -Scope 1
                     foreach ($UserSid in $UserSids)
-                    { # Get the App package family name to SID mappings from the registry on the local machine
+                    { # Get the Appx package family name to SID mappings from the registry on the local machine
                         if (Get-ChildItem -Path "HKU:\$($UserSid)_Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Mappings\" -ErrorAction SilentlyContinue)
                         {
                             $Root = (Get-ChildItem -Path "HKU:\$($UserSid)_Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Mappings\")
                             foreach ($Name in $Root.Name)
                             {
-                                if ((Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker)
+                                if ((Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker -and -not $Mappings.((Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker))
                                 {
                                     Set-Variable -Name "Mappings" -Value ($Mappings += @{(Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").Moniker = (Get-ItemProperty -path "HKU:\$Name" -Name "Moniker").PSChildName}) -Scope 1
                                 }
                             }
                         }
                     }
-
                 }
                 if (-not $Services)
                 {
@@ -2629,7 +2639,7 @@ function ScanComputerForBlockedConnectionsPage
                     {
                         $FilteredNetworkConnection.Service = @(($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).DisplayName)
                     }
-                    $FilteredNetworkConnection.Protocol = $FilteredNetworkConnection.Protocol -replace "^1$", "ICMPv4" -replace "^2$", "IGMP" -replace "^6$", "TCP" -replace "^17$", "UDP" -replace "^58$", "ICMPv6"
+                    $FilteredNetworkConnection.Protocol = $FilteredNetworkConnection.Protocol -replace "^1$", "ICMPv4" -replace "^2$", "IGMP" -replace "^47$", "GRE" -replace "^6$", "TCP" -replace "^17$", "UDP" -replace "^58$", "ICMPv6"
                     If ($FilteredNetworkConnection.Application -ne "System" -and $FilteredNetworkConnection.Application -notlike "\device\*")
                     {
                         if ($FilteredNetworkConnection.Application -eq "$($SystemRoot.Replace("\\", "\"))\System32\svchost.exe")
@@ -3495,7 +3505,7 @@ function MainThread
 
 $EnglishPortData = @{
 "0-ICMPv4" = "Echo request", "Ping, can be used to exfiltrate data and should not be used to the Internet"
-"0-ICMPv6" = "Echo request", "TBA"
+"0-ICMPv6" = "Echo request", "Ping, can be used to exfiltrate data and should not be used to the Internet"
 "22-TCP" = "SSH", "Can be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses.`r`nCommonly used to tunnel other traffic and bypass firewalls."
 "67-UDP" = "DHCP request", "Clients broadcast DHCP requests, inbound requests only need to be allowed on DHCP servers."
 "80-TCP" = "HTTP", "Unsecured web service, consider using secure HTTPS.`r`nCan be used by malware to connect to command and control servers.`r`nShould only be allowed to trusted addresses."
@@ -3561,6 +3571,9 @@ $English = @( # `n and `r`n are used for new lines
 "Services only"
 "Please select a service."
 "Collecting services."
+"Error processing command;`r`n"
+"`r`nThe rule has been created/modified by a newer version`r`nof the OS and cannot be updated from this machine.`r`nPlease use this tool on a more recent OS."
+"Command processing completed."
 )
 
 $EnglishUpdateDomainResourcesToolTips = @(
