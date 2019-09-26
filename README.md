@@ -9,7 +9,7 @@ The domain firewall baseline enables auditing of denied connection attempts with
  - IPSEC VPN  
  - IPv6  
  - Windows 10  
- - Windows Server 2012 R2/2016  
+ - Windows Server 2012 R2/2016/2019
  - Privileged access workstations  
  - 'Predefined set of computers' is supported and the following applies;  
    - 'Local Subnet' - includes the connected IP range for which an IP address has been assigned  
@@ -18,7 +18,7 @@ The domain firewall baseline enables auditing of denied connection attempts with
    - 'DNS Servers' - does not include the IPv6 addresses of DNS servers  
    - 'Internet' - is everything that isn't in the ADHarvest registry key  
 ### Not supported
- - DirectAccess (at least not for now, consider migrating to IKEv2 device tunnels)
+ - DirectAccess (at least not for now, consider migrating to IKEv2 'Always On VPN' device tunnels)
  - NetBIOS  
  - WINS  
 ### Other
