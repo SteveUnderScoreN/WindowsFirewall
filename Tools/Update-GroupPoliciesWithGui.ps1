@@ -7,7 +7,7 @@
         If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
         Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1811.1
+    Build 1911.0
 #>
 
 class WindowsFirewallRule
@@ -47,7 +47,7 @@ class WindowsFirewallRule
 function DefaultDomainResources ($DefaultDomainResourcesStatusBar)
 {
     # Version 0.7.0 domain resources
-    $DomainControllers = "127.0.0.1","SERVERNAME"
+    $DomainControllers = "127.0.0.2","LOCALHOST"
     $ProxyServerPorts = "8080"
     $ProxyServers = "LocalSubnet","Intranet"
     $DnsServers = $DomainControllers # Specify these if you do not have DNS on each domain controller or you have additional DNS servers
@@ -2640,7 +2640,7 @@ function ScanComputerForBlockedConnectionsPage
                         $FilteredNetworkConnection.Service = @(($Services.Where({$_.ProcessId -eq $FilteredNetworkConnection.ProcessID})).DisplayName)
                     }
                     $FilteredNetworkConnection.Protocol = $FilteredNetworkConnection.Protocol -replace "^1$", "ICMPv4" -replace "^2$", "IGMP" -replace "^47$", "GRE" -replace "^6$", "TCP" -replace "^17$", "UDP" -replace "^58$", "ICMPv6"
-                    If ($FilteredNetworkConnection.Application -ne "System" -and $FilteredNetworkConnection.Application -notlike "\device\*")
+                    if ($FilteredNetworkConnection.Application -ne "System" -and $FilteredNetworkConnection.Application -notlike "\device\*")
                     {
                         if ($FilteredNetworkConnection.Application -eq "$($SystemRoot.Replace("\\", "\"))\System32\svchost.exe")
                         {
@@ -2766,8 +2766,14 @@ function ScanComputerForBlockedConnectionsPage
             { # The datagridview control was not added so the status text is reset.
                 $ScanComputerForBlockedConnectionsStatusBar.Text = $Language[16]
             }
-            Remove-CimSession -CimSession $ComputerCimSession -ErrorAction SilentlyContinue
-            Remove-PSSession -Session $ComputerPsSession
+            if ($ComputerCimSession)
+            {
+                Remove-CimSession -CimSession $ComputerCimSession
+            }
+            if ($ComputerPsSession)
+            {
+                Remove-PSSession -Session $ComputerPsSession
+            }
         }
         elseif ($ScanComputerForBlockedConnectionsDataGridView.Parent)
         {
@@ -3325,6 +3331,29 @@ function MainThread
         }
         Text = $Language[0]
     }
+    $ToolSelectionPageForm.Add_SizeChanged(
+    {
+        $SquareRootOfFormSize = [math]::Sqrt($ToolSelectionPageForm.Width * $ToolSelectionPageForm.Height)
+        [int]$FontSize = $SquareRootOfFormSize / $FontSizeDivisor
+        [int]$Margin = $SquareRootOfFormSize / $MarginDivisor
+        [int]$Padding = $SquareRootOfFormSize / $PaddingDivisor
+        $BoldButtonFont = New-Object -TypeName "System.Drawing.Font"("Microsoft Sans Serif",($FontSize),[System.Drawing.FontStyle]::Bold)
+        $ExportExistingRulesToPowerShellCommandsButton.Font = $BoldButtonFont
+        $ExportExistingRulesToPowerShellCommandsButton.Margin = $Margin
+        $ExportExistingRulesToPowerShellCommandsButton.Padding = $Padding
+        $FindAllPoliciesWithFirewallRulesButton.Font = $BoldButtonFont
+        $FindAllPoliciesWithFirewallRulesButton.Margin = $Margin
+        $FindAllPoliciesWithFirewallRulesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
+        $UpdateDomainResourcesButton.Font = $BoldButtonFont
+        $UpdateDomainResourcesButton.Margin = $Margin
+        $UpdateDomainResourcesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
+        $EditExistingFirewallRulesButton.Font = $BoldButtonFont
+        $EditExistingFirewallRulesButton.Margin = $Margin
+        $EditExistingFirewallRulesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
+        $ScanComputerForBlockedConnectionsButton.Font = $BoldButtonFont
+        $ScanComputerForBlockedConnectionsButton.Margin = $Margin
+        $ScanComputerForBlockedConnectionsButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
+    })
     $ToolSelectionPageBottomButtonPanel = New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
         Width = $ToolSelectionPageForm.Width - 16
         Height = 22
@@ -3358,29 +3387,6 @@ function MainThread
         Height = $ToolSelectionPageForm.Height - 82
         FlowDirection = "LeftToRight"
     }
-    $ToolButtonPanel.Add_SizeChanged(
-    {
-        $SquareRootOfFormSize = [math]::Sqrt($ToolSelectionPageForm.Width * $ToolSelectionPageForm.Height)
-        [int]$FontSize = $SquareRootOfFormSize / $FontSizeDivisor
-        [int]$Margin = $SquareRootOfFormSize / $MarginDivisor
-        [int]$Padding = $SquareRootOfFormSize / $PaddingDivisor
-        $BoldButtonFont = New-Object -TypeName "System.Drawing.Font"("Microsoft Sans Serif",($FontSize),[System.Drawing.FontStyle]::Bold)
-        $ExportExistingRulesToPowerShellCommandsButton.Font = $BoldButtonFont
-        $ExportExistingRulesToPowerShellCommandsButton.Margin = $Margin
-        $ExportExistingRulesToPowerShellCommandsButton.Padding = $Padding
-        $FindAllPoliciesWithFirewallRulesButton.Font = $BoldButtonFont
-        $FindAllPoliciesWithFirewallRulesButton.Margin = $Margin
-        $FindAllPoliciesWithFirewallRulesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
-        $UpdateDomainResourcesButton.Font = $BoldButtonFont
-        $UpdateDomainResourcesButton.Margin = $Margin
-        $UpdateDomainResourcesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
-        $EditExistingFirewallRulesButton.Font = $BoldButtonFont
-        $EditExistingFirewallRulesButton.Margin = $Margin
-        $EditExistingFirewallRulesButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
-        $ScanComputerForBlockedConnectionsButton.Font = $BoldButtonFont
-        $ScanComputerForBlockedConnectionsButton.Margin = $Margin
-        $ScanComputerForBlockedConnectionsButton.Size = $ExportExistingRulesToPowerShellCommandsButton.Size
-    })
     $BoldButtonFont = New-Object -TypeName "System.Drawing.Font"("Microsoft Sans Serif",($FontSize),[System.Drawing.FontStyle]::Bold) 
     $ExportExistingRulesToPowerShellCommandsButton = New-Object -TypeName "System.Windows.Forms.Button" -Property @{
         Margin = $Margin
@@ -3522,9 +3528,9 @@ $English = @( # `n and `r`n are used for new lines
 "  Update domain resources"
 "Use this tool to update domain resources that can be used`nto create or update firewall rules in group policy objects.`nNames can be used and will be translated into IP addresses`nwhich can be applied to multiple rules.`n"
 "Edit existing firewall rules"
-"Use this tool to edit existing firewall rules, domain resources can be`nselected and DNS will be used to resolve all IP addresses to be used.`nMultiple rules can be edited at once and saved to a PowerShell`nscript or saved back to the domain.`nBeta 1."
+"Use this tool to edit existing firewall rules, domain resources can be`nselected and DNS will be used to resolve all IP addresses to be used.`nMultiple rules can be edited at once and saved to a PowerShell`nscript or saved back to the domain.`nBeta 2."
 "Scan computer for blocked connections"
-"Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`nBeta 1."
+"Use this tool to scan a computer for blocked network`nconnections and to create new firewall rules that can be`nsaved to a PowerShell script or saved to a group policy object.`nBeta 2."
 "Please select a tool to launch."
 "Exit"
 "Removing duplicate entries."
