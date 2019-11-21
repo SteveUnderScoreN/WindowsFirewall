@@ -5,3 +5,4 @@ The following links contain the IP ranges for various cloud services, they can b
 [OneDrive](https://docs.microsoft.com/en-us/onedrive/required-urls-and-ports)  
 [Azure DevOps](https://docs.microsoft.com/en-us/azure/devops/organizations/security/allow-list-ip-url)  
 [Azure SQL Database gateway](https://docs.microsoft.com/en-us/azure/sql-database/sql-database-connectivity-architecture)  
+[Azure IP Ranges and Service Tags – Public Cloud ](https://www.microsoft.com/en-us/download/details.aspx?id=56519)  
