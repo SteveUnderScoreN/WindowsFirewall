@@ -4,10 +4,10 @@
     navigation between Windows Forms via a back button (BackButton). 
 .NOTES
     ExportExistingRulesToPowerShellCommands
-        If a policy is created from the output of this script and that policy is linked to the same OU as the source policy the link order will determine which rule is applied.
-        Because the GUID is copied from the source they are not unique across policies, under normal conditions both rules with the same display name would be applied but
+        If a policy is created from the output of this script and that policy is linked to the same OU as the source policy, the link order will determine which rule is applied.
+        Because the GUID is copied from the source it is not unique across policies, under normal conditions both rules with the same display name would be applied but
         because they conflict the policy higher in the link order will have it's rule applied and that will overwrite the lower policy rule.
-    Build 1911.0
+    Build 2111.0
 #>
 
 class WindowsFirewallRule
@@ -1099,7 +1099,7 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
                 {
                     UpdateGroupPolicyObject
                 }
-                $ReviewAndSaveStatusBar.Text = "Review the commands and save them to a .ps1 or back to the domain GPO."
+                $ReviewAndSaveStatusBar.Text = $Language[60]
             }
         })
         $ReviewAndSaveSaveToGpoButton.Left = $ReviewAndSaveSaveAsButton.Left - $ReviewAndSaveSaveToGpoButton.Width - 5 
@@ -1108,11 +1108,22 @@ function BuildCommands ([ValidateSet("True", "False")]$ExistingRules = $false)
             DataSource = $Commands
             Dock = "Fill"
             HorizontalScrollbar = $true
-            SelectionMode = "None"
+            SelectionMode = "MultiExtended"
         }
+        $ReviewAndSaveCommandsListBox.Add_KeyDown(
+        {
+            if ($_.KeyData -eq "C, Control")
+            {
+                $_.SuppressKeyPress = $true
+                $ReviewAndSaveStatusBar.Text = $Language[61]
+                Set-Clipboard -Value $ReviewAndSaveCommandsListBox.SelectedItems
+                Start-Sleep -Milliseconds 400
+                $ReviewAndSaveStatusBar.Text = $Language[60]
+            }
+        })
         $ReviewAndSaveStatusBar = New-Object -TypeName "System.Windows.Forms.StatusBar" -Property @{
             Dock = "Bottom"
-            Text = "Review the commands and save them to a .ps1 or back to the domain GPO."
+            Text = $Language[60]
         }
         $ReviewAndSavePanel = New-Object -TypeName "System.Windows.Forms.Panel" -Property @{
             Anchor = "Top, Bottom, Left, Right"
@@ -3580,6 +3591,8 @@ $English = @( # `n and `r`n are used for new lines
 "Error processing command;`r`n"
 "`r`nThe rule has been created/modified by a newer version`r`nof the OS and cannot be updated from this machine.`r`nPlease use this tool on a more recent OS."
 "Command processing completed."
+"Review the commands and save them to a .ps1 or save them all to a domain GPO."
+"Selected commands copied to the clipboard."
 )
 
 $EnglishUpdateDomainResourcesToolTips = @(
