@@ -1,15 +1,15 @@
 # Windows Defender Firewall, PowerShell scripts/GUI tools
-As part of a defence in depth strategy application whitelisting needs to be enforced at the OS level, this mitigates much of the malware in the current threat landscape. The OS should whitelist no only what is allowed to run, enforced with AppLocker and CI policies, but also what network connectivity an application is granted. This repository contains PowerShell scripts and firewall policies to configure Windows clients and servers including protocol, port, IP and application to help achieve that goal. These policies can be used with privileged access workstations as documented [here](https://aka.ms/cyberpaw).
+As part of a defence in depth strategy application whitelisting needs to be enforced at the OS level, this mitigates much of the malware in the current threat landscape. The OS should whitelist no only what is allowed to run, enforced with AppLocker and CI policies, but also what network connectivity an application is granted. A change in the network profile of a software component could could be as a results of a software supply chain attack, outbound firewall rules and auditing will block and identidy this attack in it's early stage. This repository contains PowerShell scripts and firewall policies to configure Windows clients and servers including protocol, port, IP and application to help achieve that goal. These policies can be used with privileged access workstations as documented [here](https://aka.ms/cyberpaw).
 The scripts can be populated with the host names and/or IP addresses of your domain resources which will create very specific firewall rules for your domain. Any domain resources that do not exist in your domain can be left as the default loopback addresses as defined in the scripts. 
 These policies should not be modified outside the scripts provided, domain specific policies should be created that sit above these baselines in the group policy link order. These domain specific policies (e.g. Domain Firewall, Tier 0 Devices Firewall, Server Role - Remote Administration Firewall) can have additional firewall allow or block rules. A block rule will override any rule in the baseline.
-These baselines must be above any computer baseline [provided by Microsoft](https://aka.ms/baselines) (e.g. MSFT Windows 10 RS3 - Computer).  
+The policies provided in this repositiry must be above any computer baseline [provided by Microsoft](https://aka.ms/baselines) (e.g. MSFT Windows 10 RS3 - Computer).  
 The domain firewall baseline enables auditing of denied connection attempts within the security event log (ID 5157), the tier x device firewall baseline enables auditing of denied and permitted connections (ID 5156). Permitted and denied connections are essential forensic evidence and should be archived. Logs should be set to automatically backup when full, a scheduled task can be created on event ID 1105 which runs a script to zip the logs locally. These logs can then be harvested by a central server and stored or imported into the event management system. Along with process creation auditing (and a little HEX to DEC conversion) these firewall audit entries can be used to track the user identity associated with particular network activity which is essential in the investigation in a multi-user environment like Terminal Services.
 ## Notes
 ### Supported  
  - IPSEC VPN  
  - IPv6  
- - Windows 10  
- - Windows Server 2012 R2/2016/2019
+ - Windows 10/11 
+ - Windows Server 2012 R2/2016/2019/2022
  - Privileged access workstations  
  - 'Predefined set of computers' is supported and the following applies;  
    - 'Local Subnet' - includes the connected IP range for which an IP address has been assigned  
